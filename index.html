@@ -1085,7 +1085,7 @@ document.getElementById('googleLoginBtn').addEventListener('click', ()=>{
   const tc = ensureTokenClient();
   if(tc){
     showPublishStatus('구글 로그인 창을 여는 중입니다...');
-    tc.requestAccessToken();
+    tc.requestAccessToken({ prompt: 'consent' });
   }
 });
 
