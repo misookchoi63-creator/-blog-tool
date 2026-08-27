@@ -355,6 +355,28 @@
     color:var(--white);
     box-shadow:0 3px 0 0 #8a6626;
   }
+  .target-toggle{
+    display:flex;
+    gap:8px;
+    margin-bottom:16px;
+  }
+  .target-toggle button{
+    flex:1;
+    padding:9px 6px;
+    font-size:12.5px;
+    font-family:'Noto Sans KR',sans-serif;
+    border:1px solid var(--line);
+    background:var(--paper);
+    color:var(--ink-soft);
+    cursor:pointer;
+    border-radius:2px;
+  }
+  .target-toggle button.active{
+    background:var(--ink);
+    border-color:var(--ink);
+    color:var(--white);
+    box-shadow:0 3px 0 0 #0f1c17;
+  }
   .publish-status{
     font-size:12.5px;
     line-height:1.5;
@@ -463,9 +485,9 @@
 
   </div>
 
-  <!-- NEW: IMAGE INSERT + BLOGSPOT PUBLISH PANEL -->
+  <!-- NEW: IMAGE INSERT + PUBLISH PANEL -->
   <div class="panel" style="margin-top:24px;">
-    <div class="panel-head"><span><span class="step-no">03</span>이미지 자동 삽입 &amp; 블로그스팟 게시</span></div>
+    <div class="panel-head"><span><span class="step-no">03</span>이미지 자동 삽입 &amp; 블로그 게시</span></div>
     <div class="panel-body">
 
       <div class="field">
@@ -482,32 +504,57 @@
 
       <hr class="section-divider">
 
-      <div class="field">
-        <label for="googleClientId">Google OAuth 클라이언트 ID (Blogger 게시용)</label>
-        <input type="text" id="googleClientId" placeholder="xxxxxxxxxxxx.apps.googleusercontent.com" autocomplete="off">
-        <div class="save-key-row">
-          <label class="save-key-label"><input type="checkbox" id="saveClientIdCheck"> 이 기기에 저장</label>
+      <label>게시할 곳 선택</label>
+      <div class="target-toggle">
+        <button type="button" class="active" data-target="blogger">블로그스팟 (자동 게시)</button>
+        <button type="button" data-target="naver">네이버 블로그 (복사+붙여넣기)</button>
+      </div>
+
+      <div id="bloggerFields">
+        <div class="field">
+          <label for="googleClientId">Google OAuth 클라이언트 ID (Blogger 게시용)</label>
+          <input type="text" id="googleClientId" placeholder="xxxxxxxxxxxx.apps.googleusercontent.com" autocomplete="off">
+          <div class="save-key-row">
+            <label class="save-key-label"><input type="checkbox" id="saveClientIdCheck"> 이 기기에 저장</label>
+          </div>
+          <div class="apikey-note">
+            Google Cloud Console에서 "OAuth 클라이언트 ID"(웹 애플리케이션)를 만들고 Blogger API를 사용 설정해야 합니다. 이 HTML 파일을 여는 실제 주소(예: https://내계정.github.io/... 또는 http://localhost:포트)를 "승인된 자바스크립트 원본"에 등록해야 로그인이 동작합니다. 컴퓨터에 파일을 더블클릭해서 여는 방식(file://)으로는 구글 로그인이 되지 않습니다.
+          </div>
         </div>
-        <div class="apikey-note">
-          Google Cloud Console에서 "OAuth 클라이언트 ID"(웹 애플리케이션)를 만들고 Blogger API를 사용 설정해야 합니다. 이 HTML 파일을 여는 실제 주소(예: https://내계정.github.io/... 또는 http://localhost:포트)를 "승인된 자바스크립트 원본"에 등록해야 로그인이 동작합니다. 컴퓨터에 파일을 더블클릭해서 여는 방식(file://)으로는 구글 로그인이 되지 않습니다.
+
+        <button class="generate-btn" id="googleLoginBtn" style="margin-bottom:12px;">🔑 구글 계정으로 로그인</button>
+
+        <div class="field" id="blogSelectWrap" style="display:none;">
+          <label for="blogSelect">게시할 블로그 선택</label>
+          <select id="blogSelect" style="width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:2px; font-family:'Noto Sans KR',sans-serif; font-size:14px; background:var(--paper); color:var(--ink);"></select>
         </div>
+
+        <div class="ptoggle">
+          <button type="button" class="active" data-publish="draft">임시저장(초안)으로 게시</button>
+          <button type="button" data-publish="live">바로 공개 게시</button>
+        </div>
+
+        <button class="generate-btn" id="publishBtn" style="background:linear-gradient(135deg, var(--ochre) 0%, #8a6626 100%); box-shadow:0 4px 0 0 #5f4718;" disabled>🚀 블로그스팟에 게시하기</button>
+
+        <div class="publish-status" id="publishStatus"></div>
       </div>
 
-      <button class="generate-btn" id="googleLoginBtn" style="margin-bottom:12px;">🔑 구글 계정으로 로그인</button>
+      <div id="naverFields" style="display:none;">
+        <div class="field">
+          <label for="naverBlogId">네이버 블로그 아이디</label>
+          <input type="text" id="naverBlogId" placeholder="blog.naver.com/여기부분" autocomplete="off">
+          <div class="save-key-row">
+            <label class="save-key-label"><input type="checkbox" id="saveNaverIdCheck"> 이 기기에 저장</label>
+          </div>
+          <div class="apikey-note">
+            네이버는 보안 정책(Client Secret 노출 위험, 브라우저 CORS 차단) 때문에 구글처럼 완전 자동 게시가 되지 않습니다. 아래 버튼을 누르면 완성된 원고(이미지 포함)를 서식 그대로 클립보드에 복사하고, 네이버 블로그를 새 창으로 엽니다. 새 창에서 <b>글쓰기</b>를 누른 뒤 본문을 클릭하고 <b>Ctrl+V(붙여넣기)</b>만 하면 됩니다.
+          </div>
+        </div>
 
-      <div class="field" id="blogSelectWrap" style="display:none;">
-        <label for="blogSelect">게시할 블로그 선택</label>
-        <select id="blogSelect" style="width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:2px; font-family:'Noto Sans KR',sans-serif; font-size:14px; background:var(--paper); color:var(--ink);"></select>
+        <button class="generate-btn" id="naverPrepareBtn" style="background:linear-gradient(135deg, #03C75A 0%, #029a46 100%); box-shadow:0 4px 0 0 #027a38;">📋 복사하고 네이버 블로그 열기</button>
+
+        <div class="publish-status" id="naverStatus"></div>
       </div>
-
-      <div class="ptoggle">
-        <button type="button" class="active" data-publish="draft">임시저장(초안)으로 게시</button>
-        <button type="button" data-publish="live">바로 공개 게시</button>
-      </div>
-
-      <button class="generate-btn" id="publishBtn" style="background:linear-gradient(135deg, var(--ochre) 0%, #8a6626 100%); box-shadow:0 4px 0 0 #5f4718;" disabled>🚀 블로그스팟에 게시하기</button>
-
-      <div class="publish-status" id="publishStatus"></div>
 
     </div>
   </div>
@@ -1029,6 +1076,80 @@ document.getElementById('insertImagesBtn').addEventListener('click', async ()=>{
   document.getElementById('output').innerHTML = buildHTML(lastRawText, false, lastImagesMap);
   statusEl.textContent = `이미지 삽입 완료: 찾음 ${found}건, 실패 ${failed}건${failed>0 ? ' (실패한 항목은 설명을 영어로 바꿔 다시 시도해 보세요)' : ''}`;
   btn.disabled = false;
+});
+
+/* =====================================================
+   게시 대상 선택 (블로그스팟 / 네이버 블로그)
+===================================================== */
+let publishTarget = 'blogger';
+document.querySelectorAll('.target-toggle button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.target-toggle button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    publishTarget = btn.dataset.target;
+    document.getElementById('bloggerFields').style.display = publishTarget === 'blogger' ? 'block' : 'none';
+    document.getElementById('naverFields').style.display = publishTarget === 'naver' ? 'block' : 'none';
+  });
+});
+
+const NAVER_ID_STORAGE_KEY = 'hs9557_naver_blog_id';
+(function loadSavedNaverId(){
+  try{
+    const saved = localStorage.getItem(NAVER_ID_STORAGE_KEY);
+    if(saved){
+      document.getElementById('naverBlogId').value = saved;
+      document.getElementById('saveNaverIdCheck').checked = true;
+    }
+  }catch(e){}
+})();
+document.getElementById('saveNaverIdCheck').addEventListener('change', (e)=>{
+  try{
+    if(e.target.checked){
+      const val = document.getElementById('naverBlogId').value.trim();
+      if(val) localStorage.setItem(NAVER_ID_STORAGE_KEY, val);
+    }else{
+      localStorage.removeItem(NAVER_ID_STORAGE_KEY);
+    }
+  }catch(err){}
+});
+document.getElementById('naverBlogId').addEventListener('input', (e)=>{
+  if(document.getElementById('saveNaverIdCheck').checked){
+    try{ localStorage.setItem(NAVER_ID_STORAGE_KEY, e.target.value.trim()); }catch(err){}
+  }
+});
+
+document.getElementById('naverPrepareBtn').addEventListener('click', async ()=>{
+  const statusEl = document.getElementById('naverStatus');
+  statusEl.classList.remove('err');
+
+  if(!lastRawText){
+    statusEl.classList.add('err');
+    statusEl.textContent = '먼저 원고를 생성해 주세요.';
+    return;
+  }
+
+  const html = '<div>' + buildHTML(lastRawText, true, lastImagesMap) + '</div>';
+  const plain = toPlainText(lastRawText);
+
+  try{
+    if(window.ClipboardItem){
+      const item = new ClipboardItem({
+        'text/html': new Blob([html], {type:'text/html'}),
+        'text/plain': new Blob([plain], {type:'text/plain'})
+      });
+      await navigator.clipboard.write([item]);
+    }else{
+      await navigator.clipboard.writeText(plain);
+    }
+    statusEl.innerHTML = '복사 완료! 새로 열린 창에서 <b>글쓰기</b> 버튼을 누르고 본문을 클릭한 뒤 <b>Ctrl+V</b>로 붙여넣으세요. 이미지가 서식과 함께 안 붙으면, 사진을 따로 저장했다가 직접 첨부해 주세요.';
+  }catch(err){
+    statusEl.classList.add('err');
+    statusEl.textContent = '클립보드 복사에 실패했습니다: ' + err.message + ' — 브라우저의 클립보드 권한을 확인해 주세요.';
+  }
+
+  const blogId = document.getElementById('naverBlogId').value.trim();
+  const url = blogId ? `https://blog.naver.com/${encodeURIComponent(blogId)}` : 'https://blog.naver.com/';
+  window.open(url, '_blank');
 });
 
 /* =====================================================
