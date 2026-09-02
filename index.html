@@ -1234,6 +1234,14 @@ document.getElementById('genBtn').addEventListener('click', async ()=>{
 
   const stepPromise = runSteps();
 
+  const todayStr = new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'long' });
+  const varietySeed = Math.floor(Math.random() * 1000000);
+  const varietyInstruction = `
+
+[오늘 날짜] ${todayStr}
+[변주 시드] ${varietySeed}
+이 글이 "오늘의 운세/사주/타로/랭킹"처럼 주기적으로 반복해서 만드는 성격의 콘텐츠라면, 어제나 예전에 만든 것과 절대 비슷한 문장·순서·소재·결론이 나오지 않도록 신경 써서 작성해 주세요. 위 [변주 시드] 숫자를 참고해서 순위, 소재 선택, 예시, 구체적인 표현을 매번 확실히 다르게 구성해 주세요.`;
+
   const searchInstructionNoRef = useSearch
     ? '\n\n오늘 날짜와 [주제]/[키워드]를 기준으로, Google 검색 도구를 사용해 최신 정보·통계·이슈를 먼저 확인한 뒤 그 내용을 근거로 글을 작성해 주세요. 확인되지 않은 구체적 수치는 지어내지 마세요.'
     : '';
@@ -1251,20 +1259,48 @@ ${refMaterial}
 [키워드] ${keywords || '(참고자료 기반 자동 추출)'}
 [글 유형] ${selectedType}
 
-[참고자료]가 [주제]와 관련이 있다면 참고자료의 내용을 근거로 활용하고, 관련이 없다면 참고자료는 무시하고 [주제]를 기준으로 작성해 주세요. 시스템 프롬프트 규칙에 따라 블로그 글 한 편을 작성해 주세요.${searchInstructionWithRef}`
+[참고자료]가 [주제]와 관련이 있다면 참고자료의 내용을 근거로 활용하고, 관련이 없다면 참고자료는 무시하고 [주제]를 기준으로 작성해 주세요. 시스템 프롬프트 규칙에 따라 블로그 글 한 편을 작성해 주세요.${searchInstructionWithRef}${varietyInstruction}`
     : `[참고자료] 없이 아래 주제/키워드만으로 블로그 글 한 편을 작성해 주세요.
 
 [주제] ${topic || '(키워드로 유추)'}
 [키워드] ${keywords || '(주제로 유추)'}
 [글 유형] ${selectedType}
 
-일반적으로 알려진 지식 범위 안에서 시스템 프롬프트 규칙에 따라 작성해 주세요.${searchInstructionNoRef}`;
+일반적으로 알려진 지식 범위 안에서 시스템 프롬프트 규칙에 따라 작성해 주세요.${searchInstructionNoRef}${varietyInstruction}`;
+
+// 서버 혼잡(503, "high demand" 등) 오류일 때 최대 몇 번 더 자동 재시도한다.
+async function fetchGeminiWithRetry(apiKey, requestBody, onRetryStatus){
+  const maxAttempts = 3;
+  let lastResp, lastData;
+  for(let attempt = 1; attempt <= maxAttempts; attempt++){
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(requestBody)
+    });
+    const data = await resp.json();
+    lastResp = resp; lastData = data;
+
+    if(resp.ok) return { resp, data };
+
+    const msg = data?.error?.message || '';
+    const isCongested = resp.status === 503 || resp.status === 429 || /high demand|overloaded|unavailable/i.test(msg);
+    if(isCongested && attempt < maxAttempts){
+      const waitSec = attempt * 5; // 5초, 10초 순으로 대기 시간을 늘려가며 재시도
+      if(onRetryStatus) onRetryStatus(attempt, maxAttempts, waitSec);
+      await new Promise(r=>setTimeout(r, waitSec * 1000));
+      continue;
+    }
+    return { resp, data }; // 혼잡 오류가 아니거나 재시도 횟수를 다 썼으면 그대로 반환
+  }
+  return { resp: lastResp, data: lastData };
+}
 
   try{
     const requestBody = {
       system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: [{ role:'user', parts: [{ text: userPrompt }] }],
-      generationConfig: { temperature: 0.9, maxOutputTokens: 4096 }
+      generationConfig: { temperature: 1.1, maxOutputTokens: 4096 }
     };
     if(useSearch){
       // Gemini 2.x 계열의 Google Search 그라운딩 도구.
@@ -1272,14 +1308,9 @@ ${refMaterial}
       requestBody.tools = [{ google_search: {} }];
     }
 
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(requestBody)
+    const { resp, data } = await fetchGeminiWithRetry(apiKey, requestBody, (attempt, max, waitSec)=>{
+      btn.textContent = `서버 혼잡, ${waitSec}초 후 재시도 (${attempt}/${max - 1})...`;
     });
-
-    const data = await resp.json();
-    await stepPromise;
 
     if(!resp.ok){
       const msg = data?.error?.message || `요청 실패 (HTTP ${resp.status})`;
