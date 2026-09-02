@@ -543,6 +543,17 @@
       <div class="panel-head"><span><span class="step-no">01</span>입력</span></div>
       <div class="panel-body">
 
+        <div class="field" style="border:1px solid var(--line); border-radius:2px; padding:12px; background:var(--paper-2);">
+          <label style="margin-bottom:8px; display:block;">⚙ 설정 백업 / 복원 (키가 자꾸 지워질 때)</label>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="generate-btn" id="exportSettingsBtn" style="margin-bottom:0; flex:1; background:linear-gradient(135deg, var(--teal) 0%, var(--teal-deep) 100%); box-shadow:0 4px 0 0 var(--teal-deep);">💾 설정 파일로 저장</button>
+            <button type="button" class="generate-btn" id="importSettingsBtn" style="margin-bottom:0; flex:1; background:linear-gradient(135deg, var(--ochre) 0%, #8a6626 100%); box-shadow:0 4px 0 0 #5f4718;">📂 파일에서 불러오기</button>
+          </div>
+          <input type="file" id="importSettingsFile" accept="application/json" style="display:none;">
+          <div class="apikey-note">모든 API 키를 하나의 파일로 저장해두면, 브라우저가 지워져도 이 파일로 10초 만에 복구할 수 있습니다. 이 파일에는 키가 그대로 담기니 다른 사람과 공유하지 마세요.</div>
+          <div class="hint" id="settingsBackupStatus" style="margin-top:6px;"></div>
+        </div>
+
         <div class="field">
           <label for="apiKey">Gemini API 키</label>
           <input type="password" id="apiKey" placeholder="AIza..." autocomplete="off">
@@ -1509,8 +1520,23 @@ function isDirectImageUrl(text){
   return /^https?:\/\/\S+\.(jpg|jpeg|png|webp|gif)(\?\S*)?$/i.test(text.trim());
 }
 
+// AI 호출 없이 로컬에서 "이름+직함" 패턴을 감지하는 1차 안전장치.
+// Gemini의 지시 이행에만 의존하면 가끔 놓치기 때문에, 이 정규식 매칭을 먼저 거친다.
+// (예: "조여정 배우가 ~", "배우 조여정이 ~", "가수 아이유의 ~" 등)
+const PERSON_TITLE_WORDS = ['배우','가수','모델','정치인','대통령','국회의원','의원','장관','아나운서','선수','감독','유튜버','인플루언서','작가','교수','대표','회장','셰프','디자이너','아이돌'];
+function hasKoreanPersonName(desc){
+  const titles = PERSON_TITLE_WORDS.join('|');
+  // "OOO(2~4글자) 배우" 형태
+  const nameThenTitle = new RegExp(`[가-힣]{2,4}\\s?(${titles})(?:님|씨)?(?:[가-힣]{0,3})?[이가은는을를의]?\\s`);
+  // "배우 OOO" 형태
+  const titleThenName = new RegExp(`(${titles})\\s?[가-힣]{2,4}(?:[이가은는을를의]|\\s|$)`);
+  return nameThenTitle.test(desc) || titleThenName.test(desc);
+}
+
 async function translateDescToQuery(desc, geminiApiKey){
   const fallback = desc.replace(/[^\w가-힣\s]/g,' ').trim() || desc;
+  // 1차 안전장치: AI 응답을 기다리지 않고 로컬에서 먼저 판단한다.
+  if(hasKoreanPersonName(desc)) return 'NO_MATCH_REAL_PERSON';
   if(!geminiApiKey) return fallback;
   try{
     const prompt = `아래는 블로그 글의 이미지 자리에 들어갈 한글 상황 설명입니다.
@@ -1537,6 +1563,8 @@ ${desc}`;
     const data = await resp.json();
     const text = (data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || '').trim();
     const cleaned = text.replace(/["'.\n]/g,'').trim();
+    // 2차 안전장치: Gemini가 문장을 덧붙이더라도 마커 단어가 포함돼 있으면 인식한다 (완전 일치만 보지 않음).
+    if(/NO_MATCH_REAL_PERSON/i.test(cleaned)) return 'NO_MATCH_REAL_PERSON';
     return cleaned || fallback;
   }catch(e){
     return fallback; // 번역 실패 시 한글 원문(특수문자 제거)으로 검색 시도
@@ -1887,6 +1915,83 @@ document.getElementById('publishBtn').addEventListener('click', async ()=>{
   }finally{
     btn.disabled = false;
   }
+});
+
+/* =====================================================
+   설정 백업 / 복원 (localStorage가 자꾸 지워지는 문제 대비)
+===================================================== */
+document.getElementById('exportSettingsBtn').addEventListener('click', ()=>{
+  const statusEl = document.getElementById('settingsBackupStatus');
+  const settings = {
+    geminiApiKey: document.getElementById('apiKey').value.trim(),
+    pexelsApiKey: document.getElementById('pexelsKey').value.trim(),
+    googleClientId: document.getElementById('googleClientId').value.trim(),
+    naverBlogId: document.getElementById('naverBlogId').value.trim(),
+    useGoogleSearch: document.getElementById('useGoogleSearch').checked,
+    savedAt: new Date().toISOString()
+  };
+  try{
+    const blob = new Blob([JSON.stringify(settings, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '블로그생성기_설정.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    statusEl.textContent = '설정 파일이 다운로드되었습니다. 안전한 곳에 보관해 주세요.';
+  }catch(err){
+    statusEl.textContent = '저장 실패: ' + err.message;
+  }
+});
+
+document.getElementById('importSettingsBtn').addEventListener('click', ()=>{
+  document.getElementById('importSettingsFile').click();
+});
+
+document.getElementById('importSettingsFile').addEventListener('change', (e)=>{
+  const statusEl = document.getElementById('settingsBackupStatus');
+  const file = e.target.files[0];
+  if(!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (evt)=>{
+    try{
+      const settings = JSON.parse(evt.target.result);
+
+      if(settings.geminiApiKey){
+        document.getElementById('apiKey').value = settings.geminiApiKey;
+        document.getElementById('saveKeyCheck').checked = true;
+        try{ localStorage.setItem(STORAGE_KEY, settings.geminiApiKey); }catch(err){}
+      }
+      if(settings.pexelsApiKey){
+        document.getElementById('pexelsKey').value = settings.pexelsApiKey;
+        document.getElementById('savePexelsCheck').checked = true;
+        try{ localStorage.setItem(PEXELS_STORAGE_KEY, settings.pexelsApiKey); }catch(err){}
+      }
+      if(settings.googleClientId){
+        document.getElementById('googleClientId').value = settings.googleClientId;
+        document.getElementById('saveClientIdCheck').checked = true;
+        try{ localStorage.setItem(GCLIENTID_STORAGE_KEY, settings.googleClientId); }catch(err){}
+      }
+      if(settings.naverBlogId){
+        document.getElementById('naverBlogId').value = settings.naverBlogId;
+        document.getElementById('saveNaverIdCheck').checked = true;
+        try{ localStorage.setItem(NAVER_ID_STORAGE_KEY, settings.naverBlogId); }catch(err){}
+      }
+      if(typeof settings.useGoogleSearch === 'boolean'){
+        document.getElementById('useGoogleSearch').checked = settings.useGoogleSearch;
+        try{ localStorage.setItem(USE_SEARCH_STORAGE_KEY, settings.useGoogleSearch ? '1' : '0'); }catch(err){}
+      }
+
+      statusEl.textContent = '설정을 불러왔습니다. 이 기기에도 저장되었습니다.';
+    }catch(err){
+      statusEl.textContent = '파일을 읽지 못했습니다. 올바른 설정 파일인지 확인해 주세요.';
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
 });
 </script>
 </body>
