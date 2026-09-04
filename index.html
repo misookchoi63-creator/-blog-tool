@@ -286,6 +286,31 @@
     padding:10px 12px;
     margin:10px 0;
   }
+  #output .hs-table{
+    width:100%; border-collapse:collapse; margin:16px 0; font-size:14px;
+  }
+  #output .hs-table th{
+    background:#f3f4f6; padding:10px; border:1px solid var(--line); text-align:left; font-weight:700;
+  }
+  #output .hs-table td{
+    padding:10px; border:1px solid var(--line);
+  }
+  #output .hs-faq{
+    background:#f9fafb; border:1px solid var(--line); border-radius:8px; padding:16px; margin:20px 0;
+  }
+  #output .hs-faq-q{ font-weight:700; margin-bottom:6px; }
+  #output .hs-faq-a{ margin-bottom:14px; color:#4b5563; }
+  #output .hs-sources{
+    margin-top:28px; padding-top:16px; border-top:1px solid var(--line); font-size:13px; color:#6b7280;
+  }
+  #output .hs-sources ul{ margin:8px 0 0; padding-left:18px; }
+  #output .hs-sources a{ color:var(--teal); }
+  #output .hs-title-candidates{
+    background:#fffbeb; border-left:4px solid #f59e0b; padding:12px 16px; margin:0 0 18px; font-size:13px; color:#92400e;
+  }
+  #output .hs-meta{
+    background:#f0fdfa; border:1px solid #ccfbf1; border-radius:6px; padding:10px 14px; margin:0 0 18px; font-size:12.5px; color:#134e4a;
+  }
   #output:empty::before{
     content:"왼쪽에 참고자료와 주제를 입력하고 '원고 생성'을 누르면, 완성된 원고가 여기 나타납니다.";
     color:var(--ink-soft);
@@ -554,6 +579,15 @@
         </div>
 
         <div class="field">
+          <label>발행할 플랫폼</label>
+          <div class="target-toggle" id="platformToggleTop">
+            <button type="button" class="active" data-target="naver">네이버 블로그</button>
+            <button type="button" data-target="blogger">구글 블로그스팟</button>
+          </div>
+          <div class="hint" style="margin-top:6px;">플랫폼에 따라 완전히 다른 방식으로 글을 생성합니다. <b>네이버</b>는 D.I.A./C-Rank 기준(핵심 요약표, FAQ, 출처, 해시태그 등)에 맞춘 서식 글 + Pexels 자동 이미지 삽입 방식이고, <b>블로그스팟</b>은 목차·표·FAQ·CTA버튼이 포함된 완성형 HTML 롱폼 글로 바로 생성됩니다.</div>
+        </div>
+
+        <div class="field">
           <label>글 유형</label>
           <div class="type-toggle">
             <button type="button" class="active" data-type="정보·리스트형">정보·리스트형</button>
@@ -656,13 +690,10 @@
 
       <hr class="section-divider">
 
-      <label>게시할 곳 선택</label>
-      <div class="target-toggle">
-        <button type="button" class="active" data-target="blogger">블로그스팟 (자동 게시)</button>
-        <button type="button" data-target="naver">네이버 블로그 (복사+붙여넣기)</button>
-      </div>
+      <label>게시할 곳</label>
+      <div class="hint" style="margin-bottom:8px;">위쪽 <b>"발행할 플랫폼"</b> 선택에 따라 아래 항목이 자동으로 바뀝니다. 다른 플랫폼으로 바꾸려면 맨 위 입력 패널에서 다시 선택한 뒤 원고를 다시 생성해 주세요.</div>
 
-      <div id="bloggerFields">
+      <div id="bloggerFields" style="display:none;">
         <div class="field">
           <label for="googleClientId">Google OAuth 클라이언트 ID (Blogger 게시용)</label>
           <input type="text" id="googleClientId" placeholder="xxxxxxxxxxxx.apps.googleusercontent.com" autocomplete="off">
@@ -691,7 +722,7 @@
         <div class="publish-status" id="publishStatus"></div>
       </div>
 
-      <div id="naverFields" style="display:none;">
+      <div id="naverFields">
         <div class="field">
           <label for="naverBlogId">네이버 블로그 아이디</label>
           <input type="text" id="naverBlogId" placeholder="blog.naver.com/여기부분" autocomplete="off">
@@ -714,82 +745,187 @@
 </div>
 
 <script>
-const SYSTEM_PROMPT = `당신은 네이버 블로그 "happy_smile9557"을 운영하는 블로거의 문체를 완벽히 재현하는 글쓰기 AI입니다.
+const SYSTEM_PROMPT_NAVER = `당신은 대한민국 네이버 블로그 검색 SEO·D.I.A.(정보성·경험성·검색의도)·C-Rank(주제 전문성·신뢰성·일관성)에 특화된 전문 콘텐츠 에디터다.
 
-## 역할
-사용자가 제공하는 [참고자료]를 분석해서, 그 안의 핵심 정보·수치·주장을 뽑아낸 뒤
-아래 스타일 규칙에 맞춰 블로그 글 한 편을 완성합니다.
-참고자료를 그대로 요약하는 게 아니라, 참고자료의 정보를 근거로 삼아
-블로거 본인의 관점과 경험처럼 재구성해서 씁니다.
+## 우선순위
+검색 의도 충족 > 정확성 > 최신성 > 정보 가치(D.I.A.) > 주제 전문성·신뢰성(C-Rank) > 구체성 > 자연스러운 SEO.
+네이버 상위노출·검색 순위·D.I.A./C-Rank 점수를 보장하거나 임의로 수치화하는 표현은 절대 쓰지 않는다.
 
 ## 작업 순서 (반드시 이 순서로 사고할 것)
-1. 참고자료에서 핵심 주제, 핵심 수치/통계, 핵심 주장 3~5개를 추출한다.
-2. 이 정보를 바탕으로 글의 유형을 정한다 (사용자가 지정한 유형을 우선 따른다):
-   - 정보·리스트형: 여러 항목/방법을 비교 정리하는 글
-   - 체험 후기형: 시간 흐름에 따른 개인 경험담 형식의 글
-3. 아래 문체 규칙을 그대로 적용해 본문을 작성한다.
-4. 마지막에 스스로 체크리스트를 점검하고 최종본을 출력한다. (특히 "소제목 개수 == [이미지: ...] 개수 이상"인지 반드시 재확인하고, 빠진 소제목이 있으면 그 다음 줄에 [이미지: 설명]을 추가한 뒤 출력한다.)
-## 페르소나
-- 전문가는 아니지만 직접 찾아보고 경험하며 정보를 전달하는 블로거
-- 독자를 항상 "여러분"이라 부르며 대화하듯 서술
-- 어체는 항상 "~입니다", "~합니다"로 문장을 끝맺는 정중체를 사용한다. "~거든요", "~더라고요", "~인데요" 같은 구어체 종결어미나 줄임표(..)는 쓰지 않는다.
+1. [참고자료]가 있으면 핵심 주제·수치·주장을 추출한다. 없으면 [주제]/[키워드]에서 핵심 검색 의도와 세부 검색 의도를 자체적으로 분석한다.
+2. 정책·금융·가격·일정·이슈·인물 등 시의성이 필요한 주제인지 판단한다. 그렇다면 검색 도구로 최신 공식자료를 확인하고, 중요한 숫자·조건·날짜는 발표일/시행일을 구분해 신중히 처리한다.
+3. 글의 유형을 정한다 (사용자가 지정한 유형을 우선 따른다): 정보·리스트형 / 체험 후기형.
+4. 아래 규칙에 맞춰 본문을 작성한다.
+5. 자체 체크리스트(맨 아래)를 점검하고 최종본만 출력한다. 특히 "소제목 개수 == [이미지: ...] 개수 이상"을 재확인한다.
 
-## 제목 (반드시 글 맨 첫 줄에 작성)
-- 전체 출력의 가장 첫 줄에 제목을 "## "로 시작하는 한 줄로 작성한다 (예: "## 고혈압 전단계, 정말 방치해도 괜찮을까요?"). 이 마크는 본문 소제목("# ")과 다른, 글 전체의 대표 제목 표시이므로 절대 혼동하지 않는다.
-- 제목 줄 다음에는 빈 줄을 하나 넣고 본문을 시작한다.
-- 질문형 + 호기심 + 신뢰 키워드 조합
-- 구체적 숫자 또는 "솔직히/진짜" 류 표현을 최소 1개 포함
-
-## 도입부 (반드시 이 방식)
-인사말, 자기소개, 공감 유도, 개인 경험 훅 없이 바로 본론으로 들어간다.
-1~2문장으로 이 글의 주제와 핵심 내용을 곧바로 요약해서 제시한다 (예: "OO에는 ○○ 원인이 있습니다. 이 글에서는 그 원인과 해결 방법을 정리합니다.").
-군더더기 표현 없이 사실과 정보 위주로 짧게 시작한다.
-
-## 문장·문단 스타일
-- 모든 문장은 "~입니다", "~합니다" 형태로 끝맺는다. 의문문은 "~까요?"로 끝맺는다.
-- 한 문장 = 1~2줄, 15~40자 내외로 짧게 끊기
-- 2~4줄마다 빈 줄로 문단 구분 (모바일 가독성)
-- 소제목은 줄 맨 앞에 "# "을 붙여 별도 줄로 작성한다 (예: "# 혈관 염증 원인과 혈관 건강의 상관관계"). 소제목 앞뒤로 구분선(---) 삽입.
-
-## 강조 표시 규칙 (반드시 지킬 것)
-본문에서 강조가 필요한 부분은 아래 마크 문법으로 표시한다. 문단마다 과하지 않게 1~3곳 정도만 사용한다.
-- ==문구== : 노란 형광펜으로 하이라이트할 핵심 키워드 (예: ==혈관 염증 원인==)
-- %%문구%% : 주황색 밑줄로 강조할 중요한 문장/구절 (예: %%혈관 벽이 손상되므로%%)
-- **문구** : 일반적인 볼드 강조 (형광펜/밑줄까지는 아니지만 눈에 띄어야 하는 부분)
-이 마크들은 최종 출력 텍스트에 그대로 남겨서 출력한다 (마크를 해석해서 없애지 말 것).
-
-## 정보 전달 방식
-- [참고자료]에서 추출한 통계/근거 + 그것에 연결되는 개인 경험을 항상 짝지어 제시
-- 숫자는 구체적으로 표기
-- 필요시 번호 매기기(첫째, 둘째, 셋째)로 항목 정리
-- "흔한 오해는 ○○입니다. 하지만 사실은…" 구조 적극 활용
-
-## 마무리
-응원 멘트 → 해시태그 5~9개 (#키워드 형식, 공백 없이 붙여서)
-
-## 실시간 검색(Google Search) 활용 규칙
-- 검색 도구가 함께 제공되는 경우, 통계·최신 이슈·트렌드·제품 정보 등 시의성이 필요한 내용은 반드시 검색으로 먼저 확인한 뒤 그 내용을 근거로 삼는다. 확인 없이 추측으로 단정하지 않는다.
-- 검색으로 확인한 내용은 블로거 본인의 말투로 자연스럽게 녹여 쓴다. 특정 매체명, 기사 제목, URL을 본문에 그대로 나열하거나 각주처럼 달지 않는다 (출처 목록은 별도로 화면에 표시되므로 본문에는 필요 없다).
-- 검색 결과가 서로 엇갈리거나 확실하지 않으면 가장 일반적으로 통용되는 내용만 채택하고, 불확실한 수치는 "정확한 수치는 확인이 필요합니다" 같은 표현으로 신중하게 처리한다.
-- [참고자료]가 제공된 경우에는 [참고자료]를 우선 근거로 삼되, 검색 결과로 시점이 지난 정보(가격, 최신 트렌드, 제도 변경 등)를 자연스럽게 보완하는 용도로만 사용한다. [참고자료]의 핵심 주장과 검색 결과가 충돌하면 [참고자료]를 우선한다.
-- [참고자료]가 없는 경우에는 검색을 적극적으로 활용해 최신 정보를 확인하며 글을 작성하되, 그럼에도 확인되지 않은 구체적 수치·연구결과를 지어내지 않는다.
-
-## 절대 규칙
-- [참고자료]가 제공된 경우: 그 안에 없는 통계·연구·제품명을 지어내지 않는다. 없는 정보가 필요하면 "(확인 필요)"로 표시한다.
-- [참고자료]가 비어있거나 [주제]와 관련이 없는 경우: [참고자료]는 무시하고, [주제]와 [키워드]를 기준으로 일반적으로 알려진 지식 범위 안에서 글을 작성한다. 이 경우에도 구체적인 수치·연구 결과·통계를 확인되지 않은 채로 단정적으로 지어내지 않는다 (필요하면 "일반적으로 알려진 바로는" 같은 표현을 쓴다).
-- 어느 경우든 글은 반드시 [주제]에서 벗어나지 않아야 한다. [참고자료] 내용이 [주제]와 다르면 [주제]를 우선한다.
-- 건강기능식품/다이어트 소재는 "치료", "완치", "효과 보장" 등 의약품 오인 표현 금지.
-  "도움을 줄 수 있다", "관리에 참고하시라" 같은 보조적 표현만 사용한다.
+## 절대 금지
+- 확인되지 않은 통계·연구·금액·URL을 지어내지 않는다. 확인이 어려우면 그 항목은 빼거나 "공식 확인이 필요합니다"로 표시한다.
+- 사용자가 제공하지 않은 개인 경험("제가 직접 가봤는데요", "써보니")을 지어내지 않는다.
+- 발표일과 시행일을 혼동하지 않는다. 정책이 발표됐다는 이유만으로 "현재 적용 중"이라 단정하지 않는다.
+- 낚시성 표현("무조건", "충격", "모르면 손해", "100% 보장")을 쓰지 않는다.
+- 건강기능식품/다이어트 소재는 "치료", "완치", "효과 보장" 등 의약품 오인 표현 금지. "도움을 줄 수 있다" 같은 보조적 표현만 사용한다.
 - 처방 의약품(GLP-1 계열 등) 언급 시 "전문의 상담 필수" 문구 반드시 포함.
 - 특정 브랜드 과도 홍보 금지, 자연스러운 소개 수준 유지.
-- (필수, 예외 없음) 모든 소제목("# ") 바로 다음 줄에는 반드시 [이미지: 상황 설명] 한 줄을 삽입한다.
-  글 전체에 소제목이 N개면 [이미지: ...] 표시도 반드시 N개 이상이어야 한다. 하나라도 빠뜨리면 안 된다.
-  설명 문구는 그 소제목 내용을 그림으로 표현할 수 있는 구체적인 장면/사물/상황으로 작성한다 (예: [이미지: 혈관 속 콜레스테롤이 쌓이는 모습을 표현한 그림]).
-  [주제]가 특정 실존 인물(연예인, 배우, 공인 등)에 관한 글이라면 이미지 설명에 그 인물의 실명을 그대로 써도 된다 (예: [이미지: 조여정 배우가 세련된 수트 차림으로 서 있는 모습]). 단, 주제와 무관하게 예시로만 잠깐 등장하는 인물이라면 실명 대신 "세련된 수트를 입은 여성"처럼 일반적인 인물 묘사로 쓴다.
-  도입부 시작 직후에도 주제를 대표하는 이미지 자리를 1개 추가한다.
+
+## 페르소나 및 어체
+- 전문가는 아니지만 꼼꼼히 확인하고 정보를 전달하는 블로거. 독자를 "여러분"이라 부른다.
+- 모든 문장은 "~입니다/~합니다"로 끝맺는 정중체. 의문문은 "~까요?". 구어체 종결어미("~거든요" 등)나 줄임표(..)는 쓰지 않는다.
+- "안녕하세요", "오늘은 알아보겠습니다", "많은 분들이 궁금해하시는데요" 같은 상투적 인사/도입 표현은 절대 쓰지 않는다. 인사·자기소개·공감 유도·개인 경험 훅 없이 곧바로 핵심 정보로 들어간다.
+
+## 제목 (필수 출력 순서: 제목후보 → 최종 제목)
+가장 먼저 아래 형식으로 서로 다른 검색 의도의 제목 후보 5개를 제시한다.
+[[제목후보]]
+1. (전체 조건/기준 중심)
+2. (금액·수치 중심)
+3. (조건·비교 중심)
+4. (변경사항·최신성 중심)
+5. (대상·주의사항 중심)
+[[/제목후보]]
+그 다음 줄에 최종 선택한 제목을 "## "로 시작하는 한 줄로 작성한다. 메인키워드를 자연스럽게 포함하고, 확인된 경우에만 연도·금액·숫자를 활용한다. "총정리", "완벽정리", "이것만 알면 끝" 같은 판에 박힌 표현은 피한다.
+제목 줄 다음에는 빈 줄을 하나 넣는다.
+
+## 메타 정보
+제목 다음, 서론 앞에 아래 블록을 작성한다.
+[[메타]]
+설명: (120~150자, 메인키워드 포함, 본문에서 실제 확인 가능한 내용만 요약. 과도한 클릭 유도 금지)
+키워드: (검색 SEO 핵심 키워드 10개, 쉼표로 구분, 메인키워드를 의미 없이 반복하지 않음)
+[[/메타]]
+
+## 서론 (핵심 결론 먼저)
+서론 첫 2~4문단 안에 검색자가 가장 궁금해할 핵심 결론·숫자·조건·기준일을 즉시 제시한다. 답을 끝까지 숨기지 않는다.
+서론 직후 표로 나타낼 수 있는 정보가 있으면 아래 형식으로 핵심 요약 표를 넣는다 (없으면 생략 가능).
+[[TABLE]]
+구분|내용
+기준일|(확인된 날짜)
+...|...
+[[/TABLE]]
+
+## 문장·문단 스타일
+- 한 문장 1~2줄, 15~40자 내외로 짧게 끊기. 2~4줄마다 빈 줄로 문단 구분(모바일 가독성).
+- 소제목은 줄 맨 앞에 "# "을 붙여 별도 줄로 작성 (예: "# 2026년 기준 가입조건은 어떻게 달라졌을까"). 소제목만 읽어도 내용을 예측할 수 있게 구체적으로 쓴다. 소제목 앞뒤로 구분선(---) 삽입.
+- 목차는 절대 만들지 않는다 ([목차]나 번호 나열 형태 금지).
+- 소제목은 기본 4~6개. 각 소제목 아래 첫 1~3문장에서 핵심 답을 먼저 제시한 뒤 세부 설명을 이어간다.
+- 비교 가능한 정보(가격/조건/기간/대상/전후 비교 등)는 [[TABLE]]...[[/TABLE]] 블록으로 표를 적극 활용하고, 표 아래에 해석을 1~2문장 덧붙인다. 서로 다른 기준일의 데이터를 한 표에 섞지 않는다.
+
+## 강조 표시 규칙
+- ==문구== : 노란 형광펜 하이라이트 (핵심 키워드)
+- %%문구%% : 주황색 밑줄 강조 (중요 문장/구절)
+- **문구** : 일반 볼드
+문단마다 1~3곳만 과하지 않게 사용. 마크는 최종 출력에 그대로 남긴다.
+
+## 정보 전달 방식
+- [참고자료]/검색으로 확인한 근거는 "신한카드 공식 공지를 기준으로 보면", "국토교통부 자료에 따르면"처럼 출처 주체를 자연스럽게 밝히되, 모든 문장마다 반복하지 않는다.
+- 모호한 표현("혜택이 좋습니다", "조건이 다양합니다") 대신 실제 금액·기간·대상·제외대상을 구체적으로 쓴다.
+- "흔한 오해는 ○○입니다. 하지만 사실은…" 구조를 적극 활용한다.
+- 이전 정보와 현재 정보가 다르면 "기존에는 ○○였지만 현재는 ○○로 변경됐습니다"처럼 명확히 비교한다 (실제로 확인된 경우에만).
+
+## FAQ (필수, 본문 소제목들이 끝난 뒤 마무리 전에 배치)
+검색 의도와 직접 관련된 실제 후속 질문 3~5개를 아래 형식으로 작성한다. 본문 내용을 그대로 복사하지 않는다. 답변 첫 문장에서 핵심 답을 먼저 제시한다.
+[[FAQ]]
+Q: (질문1)
+A: (답변1)
+Q: (질문2)
+A: (답변2)
+Q: (질문3)
+A: (답변3)
+[[/FAQ]]
+
+## 마무리
+본문 전체를 반복 요약하지 않는다. "지금까지 ○○에 대해 알아봤습니다" 같은 상투적 문장을 피한다. 어떤 사람이 확인해야 하는지, 최종 판단 조건, 개인별로 달라지는 요소, 확인이 필요한 부분 위주로 2~3문단.
+
+## 출처 (실제 검색·참고자료로 확인된 것만, 확인 못했으면 이 블록 자체를 생략)
+[[출처]]
+기관/기업명 | 자료명 | 실제 확인된 URL
+기관/기업명 | 자료명 | 실제 확인된 URL
+[[/출처]]
+언론사 재인용 기사만 여러 개 채우지 말고, 가능하면 공식 원문을 우선한다. URL을 추측해서 만들어내지 않는다.
+
+## 해시태그
+마무리와 출처 다음 줄에 관련 해시태그 10~15개 (#키워드 형식, 공백 없이 붙여서). 주제와 무관한 인기 키워드는 넣지 않는다.
+
+## 이미지
+- (필수, 예외 없음) 모든 소제목("# ") 바로 다음 줄에는 반드시 [이미지: 상황 설명] 한 줄을 삽입한다. 소제목이 N개면 [이미지: ...]도 N개 이상이어야 한다.
+- 설명 문구는 구체적인 장면/사물/상황으로 쓴다 (예: [이미지: 혈관 속 콜레스테롤이 쌓이는 모습을 표현한 그림]).
+- [주제]가 특정 실존 인물(연예인, 배우, 공인 등)에 관한 글이면 실명을 그대로 써도 된다 (예: [이미지: 조여정 배우가 세련된 수트 차림으로 서 있는 모습]). 예시로만 잠깐 등장하는 인물이면 실명 대신 일반적인 인물 묘사로 쓴다.
+- 도입부 시작 직후에도 주제를 대표하는 이미지 자리를 1개 추가한다.
+- 이미지 프롬프트는 실제 사진처럼 촬영 가능한 장면으로 쓰고, 이미지 안에 글자·로고가 들어가는 연출은 피한다.
+
+## 실시간 검색(Google Search) 활용 규칙
+- 검색 도구가 제공되면, 통계·최신 이슈·트렌드·제도·가격·일정 등 시의성 필요 내용은 반드시 검색으로 먼저 확인한 뒤 근거로 삼는다. 확인 없이 추측으로 단정하지 않는다.
+- 검색으로 확인한 내용은 블로거 본인의 말투로 자연스럽게 녹여 쓴다. 기사 제목이나 URL을 본문 문장 중간에 그대로 나열하지 않는다 (출처는 [[출처]] 블록에만).
+- 검색 결과가 엇갈리면 발표일/시행일/적용대상/개정여부를 확인해 현재 유효한 기준을 판단한다. 그래도 확정하기 어려우면 수치를 임의로 선택하지 않고 "공식기관 확인이 필요합니다"로 처리한다.
+- [참고자료]가 있으면 우선하되, 시점이 지난 정보는 검색으로 자연스럽게 보완한다. 핵심 주장이 충돌하면 [참고자료]를 우선한다.
+- [참고자료]가 없으면 검색을 적극 활용해 최신 정보를 확인하며 작성하되, 확인되지 않은 구체적 수치·연구결과는 지어내지 않는다.
+
+## 최종 자체 검수 (출력 전 확인)
+제목후보 5개와 검색의도가 서로 다른가 / 메타 설명·키워드가 있는가 / 서론에 핵심 결론이 먼저 나오는가 / 소제목 4~6개와 [이미지:] 개수가 일치하는가 / 표에 서로 다른 기준일 데이터가 섞이지 않았는가 / FAQ가 3개 이상인가 / 출처 URL이 실제 확인된 것인가(없으면 블록 생략했는가) / 해시태그 10~15개인가 / 허위 경험이나 지어낸 수치가 없는가.
+
 ## 출력 형식
-"## "은 글 맨 첫 줄의 대표 제목에만 사용하고, "# "은 본문 소제목에만 사용한다. 그 외 용도로 마크다운 헤더를 쓰지 말고, 위 강조 표시 규칙(==, %%, **)과 제목("## "), 소제목("# ") 마크를 그대로 살려서 출력한다.
-구분선은 --- 로 표기. 다른 설명 없이 완성된 글 본문만 출력한다.`;
+"## "은 대표 제목에만, "# "은 본문 소제목에만 사용한다. [[제목후보]][[메타]][[TABLE]][[FAQ]][[출처]] 블록 문법을 정확히 지키고, 그 외 용도로 마크다운 헤더를 쓰지 않는다. 위 강조 표시 규칙(==, %%, **)을 그대로 살려서 출력한다. 구분선은 --- 로 표기. 다른 설명 없이 완성된 글만 출력한다.`;
+
+const SYSTEM_PROMPT_BLOGSPOT = `당신은 최신 공식자료를 검증한 뒤 검색자의 의도에 맞는 고품질 구글 SEO 롱폼 콘텐츠를 작성하는 전문 에디터다.
+Google Search 기본 원칙을 우선한다: 실제 사용자에게 도움이 되는 콘텐츠 / 명확한 검색 의도 충족 / 정확한 정보 / 신뢰할 수 있는 출처 / 최신 정보 반영 / 읽기 쉬운 구조 / 과장되지 않은 표현 / 모바일 가독성.
+검색 알고리즘의 내부 작동 방식을 임의로 추측하거나, 특정 작성 방식이 검색 순위 상승을 보장한다고 주장하지 않는다.
+
+## 작업 순서
+1. 메인키워드(및 있다면 서브키워드/글 설명)로 핵심 검색 의도와 세부 검색 의도를 파악한다.
+2. 정책·금융·가격·일정·이슈·인물 등 최신성이 필요한 주제인지 판단한다. 그렇다면 검색 도구로 최신 공식자료를 확인한다.
+3. 중요한 숫자·조건·날짜는 발표일/시행일/기준일을 구분하고, 가능하면 역할이 다른 자료로 2단계 이상 교차 검증한다. 같은 자료를 재인용한 기사 여러 개는 독립적 검증으로 세지 않는다.
+4. 공식자료끼리 수치가 다르면 발표일·시행일·적용대상·개정여부를 확인해 현재 유효한 기준을 판단한다. 확정이 어려우면 해당 수치를 본문에서 빼거나 "공식기관 최종 확인 필요"로 표시한다.
+5. 검증이 끝나면 반드시 콘텐츠 작성까지 완료한다. "정보를 확인했습니다" 같은 문장만 출력하고 끝내지 않는다.
+
+## 절대 금지
+- 존재하지 않는 URL·통계·법령·정책·전문가 의견을 생성하지 않는다.
+- 사용자가 제공하지 않은 실제 경험("직접 가봤습니다", "써보니")을 지어내지 않는다.
+- 과거 자료를 현재 정보처럼 표현하지 않는다. 검색 결과 상단에 있다는 이유로, 또는 제목에 올해 연도가 있다는 이유만으로 최신이라 판단하지 않는다.
+- 키워드를 억지로 반복하거나 모든 소제목에 같은 키워드를 넣지 않는다.
+- 네이버/구글 상위노출 보장, D.I.A./C-Rank류 점수를 임의로 수치화하지 않는다.
+- "다음 메시지에서 이어서 작성하겠습니다", "계속 작성할까요?" 같은 미완성 종료를 하지 않는다. 반드시 한 번의 응답으로 완성한다.
+
+## 서론 규칙
+"안녕하세요", "오늘은 알아보겠습니다", "많은 분들이 궁금해하시는데요" 같은 상투적 도입을 쓰지 않는다. 서론 첫 2~4문단 안에 검색자가 가장 궁금해할 핵심 결론·숫자·조건·기준일을 즉시 제시한다.
+
+## H2/H3 규칙
+H2는 독자가 그 섹션에서 무엇을 확인할 수 있는지 명확히 표현한다 (예: "2026년 가입조건은 어떻게 달라졌을까"). 여러 키워드를 한 제목에 억지로 나열하지 않는다. H3는 세부 조건을 구분할 필요가 있을 때만 사용한다.
+
+## 표·blockquote·사례
+비교하기 좋은 정보(가격/조건/기간/대상/전후 비교)는 표로 정리하고 표 아래에 해석을 덧붙인다. 서로 다른 기준일 데이터를 한 표에 섞지 않는다.
+핵심 가입조건, 중요 시행일, 큰 제도 변경, 오해하기 쉬운 예외사항 등 강조할 가치가 있는 내용만 blockquote로 표시한다.
+사용자가 제공하지 않은 실제 경험은 만들지 않는다. 사례가 필요하면 공식기관 제공 예시나 "가상의 예시"임을 명확히 표시한 계산 사례만 사용한다.
+
+## FAQ / 결론 / 출처
+본문 하단에 실제 검색 의도와 관련된 FAQ 최소 3개, 답변 첫 문장에서 핵심 답 제시. 결론은 본문 반복이 아니라 최종 판단·주의사항 위주로 2~3문단. 실제 검증에 사용한 핵심 출처를 표시하고(가능하면 하나는 공식 원문), URL은 실제 검색으로 확인된 것만 사용한다. 존재하지 않는 URL을 만들지 않는다.
+
+## HTML 및 모바일 호환 규칙
+JavaScript, 외부 CSS 프레임워크, 복잡한 iframe, form 요소를 사용하지 않는다. 티스토리/Blogger/WordPress에서 공통으로 쓸 수 있는 범용 구조로 작성한다. 핵심 가독성·레이아웃(글자 크기, 여백, line-height, 테두리, 배경색, 표, CTA, 강조 박스)은 주요 요소에 inline style로 직접 적용한다. 보조적으로 <style> 태그를 상단에 둘 수 있으나, <style>이 제거되어도 본문 정보와 최소한의 구조는 유지되어야 한다.
+본문 상단에는 JavaScript 없는 기본 HTML 앵커 링크로 클릭 가능한 목차를 둔다 (href와 실제 섹션 id가 정확히 일치).
+CTA 버튼은 실제 연결 페이지 기능과 일치하는 문구로 만들고 <a> 태그에 inline style을 적용한다 (JavaScript 버튼 금지). 버튼 URL은 실제 검색으로 확인된 공식 URL만 사용한다.
+
+## 이미지
+- HTML 본문 안에 이미지가 들어가면 좋을 위치(대표 이미지 1곳 + 주요 H2 소제목 중 3~5곳)마다, <img> 태그를 직접 만들지 말고 정확히 다음 형식의 "일반 텍스트 줄"을 그 자리에 그대로 삽입한다: [이미지: 상황 설명]
+  (이 표시는 나중에 시스템이 실제 사진으로 자동 치환한다. 절대 <img> 태그, base64, placeholder URL을 직접 생성하지 않는다.)
+- 위치 예시: 대표 이미지는 서론 바로 다음 줄, 나머지는 해당 H2 제목 바로 다음 줄(문단 시작 전)에 별도 줄로 넣는다.
+- 설명 문구는 그 섹션 내용을 사진으로 표현할 수 있는 구체적인 장면/사물/상황으로 쓴다 (예: [이미지: 계산기로 예상 수령액을 확인하는 손 모습]).
+- 글의 주제가 특정 실존 인물(연예인, 배우, 공인 등)에 관한 것이면 이미지 설명에 그 인물의 실명을 그대로 써도 된다. 예시로만 잠깐 언급되는 인물이면 실명 대신 일반적인 인물 묘사로 쓴다.
+- 이미지 자리 표시 줄 자체는 <p> 등 HTML 태그로 감싸지 않고, 다른 텍스트와 섞이지 않게 독립된 줄로 둔다.
+
+## 최종 출력 형식 (반드시 이 순서, 이 표시만 사용)
+[1] 제목
+서로 다른 검색 의도를 가진 제목 3개. 메인키워드를 자연스럽게 포함. 낚시성 표현("무조건", "충격", "100% 보장", "검색 1위") 금지.
+
+[2] 메타 데이터
+메타 디스크립션: (120~150자, 본문에 없는 내용 약속 금지)
+SEO 핵심 키워드: (10개, 쉼표로 구분, 해시태그 금지)
+
+[3] HTML 본문
+바로 다음 줄부터 실제 HTML을 출력한다. 최상위 컨테이너 하나(div)로 감싸고 </div>까지 반드시 완성한다. 목차 → 서론(핵심 결론 먼저) → 핵심 요약(표 가능) → 소제목별 본문(H2, 필요시 표/blockquote) → FAQ → 결론 → CTA(있다면) → "출처 및 참고 사이트" 섹션 순서로 구성한다. "[목차]" 같은 텍스트 목차는 별도로 만들지 않는다(HTML 앵커 목차만 사용).
+
+## 출력 안정성 규칙
+[3] HTML 본문 이후의 실제 HTML 전체는 반드시 마크다운 코드블록(\`\`\`html 로 시작해서 \`\`\` 로 끝나는 형태) 안에 담아 출력한다. 코드블록 앞뒤에 "아래는 HTML입니다" 같은 별도 설명 문장을 쓰지 않는다. 분량이 길어도 중간에 끊거나 "계속 작성할까요?"라고 묻지 말고 한 번에 </div>까지 전부 출력한다.
+
+## 최종 자체 검수 (출력 전 확인)
+제목 3개의 검색 의도가 서로 다른가 / 메타 설명·키워드가 있는가 / 목차 href와 H2 id가 일치하는가 / 서론에 핵심 결론이 먼저 나오는가 / 표에 서로 다른 기준일 데이터가 섞이지 않았는가 / FAQ가 3개 이상인가 / 결론이 존재하는가 / CTA가 있다면 실제 URL과 연결되는가 / 출처 URL이 실제 확인된 것인가 / [이미지: 설명] 자리 표시가 대표 이미지 포함 4곳 이상인가 / 최상위 div가 정상적으로 닫혔는가 / 코드블록으로 감쌌는가.`;
+
 
 const STORAGE_KEY = 'hs9557_gemini_api_key';
 
@@ -859,8 +995,106 @@ function buildHTML(raw, inline, imagesMap){
       buf = [];
     }
   }
+  // 표/FAQ/출처/제목후보/메타 블록을 렌더링하는 헬퍼들
+  function renderTable(rows){
+    if(!rows.length) return '';
+    const [head, ...body] = rows;
+    const thCells = head.split('|').map(c=>c.trim());
+    let t = inline
+      ? '<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">'
+      : '<table class="hs-table">';
+    t += '<thead><tr>' + thCells.map(c=> inline
+      ? `<th style="background:#f3f4f6;padding:10px;border:1px solid #e5e7eb;text-align:left;">${escapeHtml(c)}</th>`
+      : `<th>${escapeHtml(c)}</th>`).join('') + '</tr></thead><tbody>';
+    body.forEach(r=>{
+      const cells = r.split('|').map(c=>c.trim());
+      t += '<tr>' + cells.map(c=> inline
+        ? `<td style="padding:10px;border:1px solid #e5e7eb;">${escapeHtml(c)}</td>`
+        : `<td>${escapeHtml(c)}</td>`).join('') + '</tr>';
+    });
+    t += '</tbody></table>';
+    return t;
+  }
+  function renderFaq(lines){
+    let items = [];
+    let curQ = null;
+    lines.forEach(l=>{
+      const qm = l.match(/^Q:\s*(.*)$/);
+      const am = l.match(/^A:\s*(.*)$/);
+      if(qm){ curQ = qm[1].trim(); }
+      else if(am && curQ !== null){ items.push({q:curQ, a:am[1].trim()}); curQ = null; }
+    });
+    if(!items.length) return '';
+    let f = inline ? '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin:20px 0;">' : '<div class="hs-faq">';
+    items.forEach(it=>{
+      f += inline
+        ? `<div style="font-weight:700;margin-bottom:6px;">Q. ${escapeHtml(it.q)}</div><div style="margin-bottom:14px;color:#4b5563;">A. ${escapeHtml(it.a)}</div>`
+        : `<div class="hs-faq-q">Q. ${escapeHtml(it.q)}</div><div class="hs-faq-a">A. ${escapeHtml(it.a)}</div>`;
+    });
+    f += '</div>';
+    return f;
+  }
+  function renderSources(lines){
+    const items = lines.filter(l=>l.trim()).map(l=>{
+      const parts = l.split('|').map(p=>p.trim());
+      return { org: parts[0]||'', title: parts[1]||'', url: parts[2]||'' };
+    });
+    if(!items.length) return '';
+    let s = inline ? '<div style="margin-top:28px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:13px;color:#6b7280;"><b>출처 및 참고 사이트</b><ul style="margin:8px 0 0;padding-left:18px;">' : '<div class="hs-sources"><b>출처 및 참고 사이트</b><ul>';
+    items.forEach(it=>{
+      const label = escapeHtml([it.org, it.title].filter(Boolean).join(' | '));
+      s += it.url ? `<li><a href="${escapeHtml(it.url)}" target="_blank" rel="noopener">${label}</a></li>` : `<li>${label}</li>`;
+    });
+    s += '</ul></div>';
+    return s;
+  }
+  function renderTitleCandidates(lines){
+    const items = lines.filter(l=>l.trim());
+    if(!items.length) return '';
+    let c = inline ? '<div style="background:#fffbeb;border-left:4px solid #f59e0b;padding:12px 16px;margin:0 0 18px;font-size:13px;color:#92400e;"><b>제목 후보 (참고용)</b><br>' : '<div class="hs-title-candidates"><b>제목 후보 (참고용)</b><br>';
+    c += items.map(l=>escapeHtml(l)).join(inline ? '<br>' : '<br>');
+    c += '</div>';
+    return c;
+  }
+  function renderMeta(lines){
+    const items = lines.filter(l=>l.trim());
+    if(!items.length) return '';
+    let m = inline ? '<div style="background:#f0fdfa;border:1px solid #ccfbf1;border-radius:6px;padding:10px 14px;margin:0 0 18px;font-size:12.5px;color:#134e4a;">' : '<div class="hs-meta">';
+    m += items.map(l=>escapeHtml(l)).join('<br>');
+    m += '</div>';
+    return m;
+  }
+
+  let blockMode = null; // 'TABLE' | 'FAQ' | '출처' | '제목후보' | '메타' | null
+  let blockLines = [];
+
   for(const line of lines){
     const t = line.trim();
+
+    // 블록 시작/종료 마커 처리
+    const blockStart = t.match(/^\[\[(TABLE|FAQ|출처|제목후보|메타)\]\]$/);
+    const blockEnd = t.match(/^\[\[\/(TABLE|FAQ|출처|제목후보|메타)\]\]$/);
+    if(blockStart){
+      flush();
+      blockMode = blockStart[1];
+      blockLines = [];
+      continue;
+    }
+    if(blockEnd && blockMode === blockEnd[1]){
+      if(blockMode === 'TABLE') html += renderTable(blockLines);
+      else if(blockMode === 'FAQ') html += renderFaq(blockLines);
+      else if(blockMode === '출처') html += renderSources(blockLines);
+      else if(blockMode === '제목후보') html += renderTitleCandidates(blockLines);
+      else if(blockMode === '메타') html += renderMeta(blockLines);
+      blockMode = null;
+      blockLines = [];
+      continue;
+    }
+    if(blockMode){
+      if(t !== '') blockLines.push(t);
+      continue;
+    }
+
     if(t === '---'){
       flush();
       html += inline ? '<hr style="border:none;border-top:1px solid #ddd;margin:20px 0;">' : '<hr>';
@@ -915,15 +1149,82 @@ function buildHTML(raw, inline, imagesMap){
 
 function toPlainText(raw){
   return raw
+    .replace(/\[\[(TABLE|FAQ|출처|제목후보|메타)\]\]\n?/g, '')
+    .replace(/\[\[\/(TABLE|FAQ|출처|제목후보|메타)\]\]\n?/g, '')
     .replace(/^## /gm, '')
     .replace(/^# /gm, '')
+    .replace(/^Q:\s*/gm, 'Q. ')
+    .replace(/^A:\s*/gm, 'A. ')
+    .replace(/\|/g, '  ')
     .replace(/==(.+?)==/g, '$1')
     .replace(/%%(.+?)%%/g, '$1')
     .replace(/\*\*(.+?)\*\*/g, '$1');
 }
 
+// ===== 블로그스팟(HTML 롱폼) 출력 파싱 헬퍼 =====
+function stripCodeFence(text){
+  const t = text.trim();
+  const fenceMatch = t.match(/^```(?:html)?\s*\n([\s\S]*?)\n```$/);
+  if(fenceMatch) return fenceMatch[1].trim();
+  const idx1 = t.indexOf('```html');
+  const idx2 = t.lastIndexOf('```');
+  if(idx1 !== -1 && idx2 > idx1){
+    return t.slice(idx1 + 7, idx2).trim();
+  }
+  return t;
+}
+
+function parseBlogspotOutput(text){
+  const titleSection = text.match(/\[1\]\s*제목([\s\S]*?)(?=\[2\])/);
+  const metaSection = text.match(/\[2\]\s*메타\s*데이터([\s\S]*?)(?=\[3\])/);
+  const htmlSectionMatch = text.match(/\[3\]\s*HTML\s*본문([\s\S]*)/);
+  let titles = [];
+  if(titleSection){
+    titles = titleSection[1].split('\n').map(l=>l.replace(/^\s*\d+[\.\)]\s*/,'').trim()).filter(Boolean);
+  }
+  let metaDesc = '', metaKeywords = '';
+  if(metaSection){
+    const mDescM = metaSection[1].match(/메타\s*디스크립션\s*[:：]\s*(.+)/);
+    const mKwM = metaSection[1].match(/SEO\s*핵심\s*키워드\s*[:：]\s*(.+)/);
+    if(mDescM) metaDesc = mDescM[1].trim();
+    if(mKwM) metaKeywords = mKwM[1].trim();
+  }
+  let html = htmlSectionMatch ? htmlSectionMatch[1] : text;
+  html = stripCodeFence(html);
+  return { titles, metaDesc, metaKeywords, html };
+}
+
+function buildBlogspotMetaBox(titles, desc, keywords){
+  let box = '<div style="background:#fffbeb;border-left:4px solid #f59e0b;padding:14px 16px;margin:0 0 20px;font-size:13px;color:#92400e;">';
+  if(titles.length){
+    box += '<b>제목 후보 (참고용 — 실제 발행 제목은 아래에서 고르거나 "주제" 칸에 직접 입력)</b><br>' + titles.map((t,i)=>`${i+1}. ${escapeHtml(t)}`).join('<br>') + '<br><br>';
+  }
+  if(desc){ box += '<b>메타 디스크립션</b><br>' + escapeHtml(desc) + '<br><br>'; }
+  if(keywords){ box += '<b>SEO 핵심 키워드</b><br>' + escapeHtml(keywords); }
+  box += '</div>';
+  return box;
+}
+
+// 블로그스팟 raw HTML 안에 있는 [이미지: 설명] 표시를 실제 <img> 또는 대기 박스로 치환한다.
+// (네이버와 동일한 [이미지: ...] 문법을 그대로 재사용하므로 Pexels 검색/치환 파이프라인을 공유한다.)
+function renderBlogspotHtml(html, imagesMap){
+  imagesMap = imagesMap || {};
+  return html.replace(/\[이미지:(.*?)\]/g, (full, d)=>{
+    const descRaw = d.trim();
+    const desc = escapeHtml(descRaw);
+    const url = imagesMap[descRaw];
+    if(url){
+      return `<img src="${url}" alt="${desc}" loading="lazy" style="max-width:100%;height:auto;border-radius:6px;margin:20px 0;display:block;">`;
+    }
+    return `<div style="color:#999;font-size:13px;border:1px dashed #ccc;padding:10px 12px;margin:16px 0;">🖼 이미지 자리 — ${desc}</div>`;
+  });
+}
+
 let lastRawText = '';
 let lastImagesMap = {}; // { "설명문구": "이미지URL" }
+let lastIsRawHtml = false; // true면 lastRawText가 블로그스팟용 완성 HTML (마크 파싱 대상 아님)
+let lastBlogspotTitles = [];
+let lastBlogspotMeta = { desc:'', keywords:'' };
 
 let selectedType = "정보·리스트형";
 
@@ -1246,8 +1547,25 @@ document.getElementById('genBtn').addEventListener('click', async ()=>{
     ? '\n\n필요하다면 Google 검색 도구로 [참고자료]에 없는 최신 정보(시점이 지난 수치, 최신 트렌드나 제도 변경 등)를 보완해서 확인해 주세요. 단, [참고자료]의 핵심 내용과 검색 결과가 충돌하면 [참고자료]를 우선해 주세요.'
     : '';
 
-  const userPrompt = refMaterial
-    ? `아래는 이번 글 작성에 사용할 참고자료입니다.
+  let userPrompt;
+  let systemPromptToUse;
+
+  if(publishTarget === 'blogger'){
+    systemPromptToUse = SYSTEM_PROMPT_BLOGSPOT;
+    const mainKeyword = topic || (keywords ? keywords.split(',')[0].trim() : '');
+    const subKeywords = keywords || '(없음 — 메인키워드 기준으로 자체 분석)';
+    const descLine = refMaterial
+      ? `[글 설명] 아래 참고자료를 작성 방향과 배경으로 참고하되, 최신 공식자료와 내용이 다르면 최신 공식자료를 우선하세요.\n\n[참고자료]\n${refMaterial}`
+      : '[글 설명] (없음 — 메인키워드 기준으로 검색 의도를 자체 분석해서 작성)';
+    userPrompt = `[메인키워드] ${mainKeyword || '(주제 미입력 — 키워드로 유추)'}
+[서브키워드] ${subKeywords}
+${descLine}
+
+위 입력을 바탕으로 시스템 프롬프트의 규칙과 출력 형식을 그대로 따라 구글 블로그스팟용 SEO 롱폼 글을 작성해 주세요.${refMaterial ? searchInstructionWithRef : searchInstructionNoRef}`;
+  }else{
+    systemPromptToUse = SYSTEM_PROMPT_NAVER;
+    userPrompt = refMaterial
+      ? `아래는 이번 글 작성에 사용할 참고자료입니다.
 
 [참고자료]
 ${refMaterial}
@@ -1257,19 +1575,20 @@ ${refMaterial}
 [글 유형] ${selectedType}
 
 [참고자료]가 [주제]와 관련이 있다면 참고자료의 내용을 근거로 활용하고, 관련이 없다면 참고자료는 무시하고 [주제]를 기준으로 작성해 주세요. 시스템 프롬프트 규칙에 따라 블로그 글 한 편을 작성해 주세요.${searchInstructionWithRef}`
-    : `[참고자료] 없이 아래 주제/키워드만으로 블로그 글 한 편을 작성해 주세요.
+      : `[참고자료] 없이 아래 주제/키워드만으로 블로그 글 한 편을 작성해 주세요.
 
 [주제] ${topic || '(키워드로 유추)'}
 [키워드] ${keywords || '(주제로 유추)'}
 [글 유형] ${selectedType}
 
 일반적으로 알려진 지식 범위 안에서 시스템 프롬프트 규칙에 따라 작성해 주세요.${searchInstructionNoRef}`;
+  }
 
   try{
     const requestBody = {
-      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      system_instruction: { parts: [{ text: systemPromptToUse }] },
       contents: [{ role:'user', parts: [{ text: userPrompt }] }],
-      generationConfig: { temperature: 0.9, maxOutputTokens: 4096 }
+      generationConfig: { temperature: 0.9, maxOutputTokens: 8192 }
     };
     if(useSearch){
       // Gemini 2.x 계열의 Google Search 그라운딩 도구.
@@ -1298,23 +1617,50 @@ ${refMaterial}
       showError('응답에서 텍스트를 찾지 못했습니다. 참고자료를 줄이거나 다시 시도해 보세요.');
       return;
     }
-    lastRawText = text;
-    lastImagesMap = {};
-    lastImageDescs = [];
-    lastImageQueries = {};
-    document.getElementById('output').innerHTML = buildHTML(text, false, lastImagesMap);
-    document.getElementById('insertImagesBtn').disabled = false;
-    document.getElementById('imageInsertStatus').textContent = '';
-    document.getElementById('publishStatus').textContent = '';
-    document.getElementById('publishStatus').classList.remove('err');
-    renderImageReviewList();
-    renderGrounding(candidate?.groundingMetadata);
 
-    // Pexels API 키가 입력되어 있으면 이어서 자동으로 이미지까지 삽입
-    const pexelsKeyForAuto = document.getElementById('pexelsKey').value.trim();
-    if(pexelsKeyForAuto){
-      btn.textContent = '이미지 삽입 중...';
-      await runInsertImages();
+    if(publishTarget === 'blogger'){
+      lastIsRawHtml = true;
+      const parsed = parseBlogspotOutput(text);
+      lastRawText = parsed.html;
+      lastBlogspotTitles = parsed.titles;
+      lastBlogspotMeta = { desc: parsed.metaDesc, keywords: parsed.metaKeywords };
+      lastImagesMap = {};
+      lastImageDescs = [];
+      lastImageQueries = {};
+      renderOutputPreview();
+      document.getElementById('insertImagesBtn').disabled = false;
+      document.getElementById('imageInsertStatus').textContent = '';
+      document.getElementById('imageReviewWrap').style.display = 'none';
+      document.getElementById('publishStatus').textContent = '';
+      document.getElementById('publishStatus').classList.remove('err');
+      renderGrounding(candidate?.groundingMetadata);
+
+      // Pexels API 키가 입력되어 있으면 이어서 자동으로 이미지까지 삽입 (블로그스팟 모드도 동일하게 지원)
+      const pexelsKeyForAutoBlogger = document.getElementById('pexelsKey').value.trim();
+      if(pexelsKeyForAutoBlogger){
+        btn.textContent = '이미지 삽입 중...';
+        await runInsertImages();
+      }
+    }else{
+      lastIsRawHtml = false;
+      lastRawText = text;
+      lastImagesMap = {};
+      lastImageDescs = [];
+      lastImageQueries = {};
+      document.getElementById('output').innerHTML = buildHTML(text, false, lastImagesMap);
+      document.getElementById('insertImagesBtn').disabled = false;
+      document.getElementById('imageInsertStatus').textContent = '';
+      document.getElementById('publishStatus').textContent = '';
+      document.getElementById('publishStatus').classList.remove('err');
+      renderImageReviewList();
+      renderGrounding(candidate?.groundingMetadata);
+
+      // Pexels API 키가 입력되어 있으면 이어서 자동으로 이미지까지 삽입 (네이버 모드에서만)
+      const pexelsKeyForAuto = document.getElementById('pexelsKey').value.trim();
+      if(pexelsKeyForAuto){
+        btn.textContent = '이미지 삽입 중...';
+        await runInsertImages();
+      }
     }
 
   }catch(err){
@@ -1330,8 +1676,8 @@ ${refMaterial}
 
 document.getElementById('copyBtn').addEventListener('click', async ()=>{
   if(!lastRawText) return;
-  const html = '<div>' + buildHTML(lastRawText, true, lastImagesMap) + '</div>';
-  const plain = toPlainText(lastRawText);
+  const html = lastIsRawHtml ? lastRawText : ('<div>' + buildHTML(lastRawText, true, lastImagesMap) + '</div>');
+  const plain = lastIsRawHtml ? lastRawText : toPlainText(lastRawText);
   try{
     if(window.ClipboardItem){
       const item = new ClipboardItem({
@@ -1353,7 +1699,7 @@ document.getElementById('copyBtn').addEventListener('click', async ()=>{
 
 document.getElementById('copyPlainBtn').addEventListener('click', ()=>{
   if(!lastRawText) return;
-  const plain = toPlainText(lastRawText);
+  const plain = lastIsRawHtml ? lastRawText : toPlainText(lastRawText);
   navigator.clipboard.writeText(plain).then(()=>{
     const btn = document.getElementById('copyPlainBtn');
     const original = btn.textContent;
@@ -1364,16 +1710,16 @@ document.getElementById('copyPlainBtn').addEventListener('click', ()=>{
 
 document.getElementById('downloadBtn').addEventListener('click', ()=>{
   if(!lastRawText) return;
-  const plain = toPlainText(lastRawText);
+  const plain = lastIsRawHtml ? lastRawText : toPlainText(lastRawText);
   const topicVal = document.getElementById('topic').value.trim();
   const now = new Date();
   const y = now.getFullYear();
   const m = String(now.getMonth()+1).padStart(2,'0');
   const d = String(now.getDate()).padStart(2,'0');
   const safeTopic = (topicVal || 'blog-draft').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_').slice(0, 40);
-  const filename = `${safeTopic}_${y}${m}${d}.txt`;
+  const filename = `${safeTopic}_${y}${m}${d}${lastIsRawHtml ? '.html' : '.txt'}`;
 
-  const blob = new Blob([plain], {type:'text/plain;charset=utf-8'});
+  const blob = new Blob([plain], {type: lastIsRawHtml ? 'text/html;charset=utf-8' : 'text/plain;charset=utf-8'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -1469,7 +1815,20 @@ document.getElementById('googleClientId').addEventListener('input', (e)=>{
   }
 });
 
-function ensureImagePlaceholders(raw){
+function ensureImagePlaceholders(raw, isHtml){
+  if(isHtml){
+    // 블로그스팟 모드: 소제목은 <h2>라서 마크 기반 자동삽입 로직을 쓰지 않고,
+    // 표시가 하나도 없을 때만 최상위 컨테이너 시작 태그 바로 뒤에 대표 이미지 자리를 하나 넣는다.
+    const totalImgs = (raw.match(/\[이미지:[^\]]*\]/g) || []).length;
+    if(totalImgs === 0){
+      const idx = raw.indexOf('>');
+      if(idx !== -1){
+        return raw.slice(0, idx+1) + '\n[이미지: 글 주제를 표현하는 대표 이미지]\n' + raw.slice(idx+1);
+      }
+      return `[이미지: 글 주제를 표현하는 대표 이미지]\n` + raw;
+    }
+    return raw;
+  }
   const headingRe = /^#\s+(.+)$/;
   const imgRe = /^\[이미지:(.*)\]$/;
   const lines = raw.split('\n');
@@ -1613,6 +1972,16 @@ function renderImageReviewList(){
   wrap.style.display = 'block';
 }
 
+// 현재 lastRawText/lastIsRawHtml 상태에 맞춰 #output 미리보기를 다시 그리는 공용 함수.
+// (네이버 마크 서식과 블로그스팟 raw HTML 두 모드 모두에서 이미지 삽입/재검색 시 재사용)
+function renderOutputPreview(){
+  if(lastIsRawHtml){
+    document.getElementById('output').innerHTML = buildBlogspotMetaBox(lastBlogspotTitles, lastBlogspotMeta.desc, lastBlogspotMeta.keywords) + renderBlogspotHtml(lastRawText, lastImagesMap);
+  }else{
+    document.getElementById('output').innerHTML = buildHTML(lastRawText, false, lastImagesMap);
+  }
+}
+
 document.getElementById('imageReviewList').addEventListener('click', async (e)=>{
   const btn = e.target.closest('.requery-btn');
   if(!btn) return;
@@ -1632,7 +2001,7 @@ document.getElementById('imageReviewList').addEventListener('click', async (e)=>
     if(isDirectImageUrl(query)){
       lastImagesMap[desc] = query;
       lastImageQueries[desc] = query;
-      document.getElementById('output').innerHTML = buildHTML(lastRawText, false, lastImagesMap);
+      renderOutputPreview();
       renderImageReviewList();
       statusEl.textContent = `"${desc}" 항목에 입력하신 이미지 URL을 바로 적용했습니다.`;
       return;
@@ -1643,7 +2012,7 @@ document.getElementById('imageReviewList').addEventListener('click', async (e)=>
     if(url){
       lastImagesMap[desc] = url;
       lastImageQueries[desc] = query;
-      document.getElementById('output').innerHTML = buildHTML(lastRawText, false, lastImagesMap);
+      renderOutputPreview();
       renderImageReviewList();
       statusEl.textContent = `"${desc}" 항목의 사진을 "${query}" 검색 결과로 교체했습니다.`;
     }else{
@@ -1664,10 +2033,10 @@ async function runInsertImages(){
   if(!pexelsKey){ statusEl.textContent = 'Pexels API 키를 입력해 주세요.'; return; }
   if(!lastRawText){ statusEl.textContent = '먼저 원고를 생성해 주세요.'; return; }
 
-  const fixedText = ensureImagePlaceholders(lastRawText);
+  const fixedText = ensureImagePlaceholders(lastRawText, lastIsRawHtml);
   if(fixedText !== lastRawText){
     lastRawText = fixedText;
-    document.getElementById('output').innerHTML = buildHTML(lastRawText, false, lastImagesMap);
+    renderOutputPreview();
   }
 
   const descs = extractImagePlaceholders(lastRawText);
@@ -1709,7 +2078,7 @@ async function runInsertImages(){
     await new Promise(r=>setTimeout(r, 250));
   }
 
-  document.getElementById('output').innerHTML = buildHTML(lastRawText, false, lastImagesMap);
+  renderOutputPreview();
   renderImageReviewList();
   statusEl.textContent = `이미지 삽입 완료: 찾음 ${found}건, 실패 ${failed}건${failed>0 ? ' (실패한 항목은 아래 목록에서 검색어를 영어로 직접 수정해 재검색해 보세요)' : ''} — 내용과 안 맞는 사진은 아래 목록에서 검색어를 고쳐 개별 재검색하세요.`;
   btn.disabled = false;
@@ -1720,7 +2089,7 @@ document.getElementById('insertImagesBtn').addEventListener('click', runInsertIm
 /* =====================================================
    게시 대상 선택 (블로그스팟 / 네이버 블로그)
 ===================================================== */
-let publishTarget = 'blogger';
+let publishTarget = 'naver';
 document.querySelectorAll('.target-toggle button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.target-toggle button').forEach(b=>b.classList.remove('active'));
@@ -1764,6 +2133,11 @@ document.getElementById('naverPrepareBtn').addEventListener('click', async ()=>{
   if(!lastRawText){
     statusEl.classList.add('err');
     statusEl.textContent = '먼저 원고를 생성해 주세요.';
+    return;
+  }
+  if(lastIsRawHtml){
+    statusEl.classList.add('err');
+    statusEl.textContent = '지금 생성된 원고는 블로그스팟용 HTML입니다. 상단 "발행할 플랫폼"을 네이버 블로그로 바꾸고 원고를 다시 생성해 주세요.';
     return;
   }
 
@@ -1890,10 +2264,15 @@ document.getElementById('publishBtn').addEventListener('click', async ()=>{
   const blogId = document.getElementById('blogSelect').value;
   if(!blogId){ showPublishStatus('게시할 블로그를 선택해 주세요.', true); return; }
   if(!lastRawText){ showPublishStatus('먼저 원고를 생성해 주세요.', true); return; }
+  if(!lastIsRawHtml){
+    showPublishStatus('지금 생성된 원고는 네이버용 마크 서식입니다. 상단 "발행할 플랫폼"을 구글 블로그스팟으로 바꾸고 원고를 다시 생성해 주세요.', true);
+    return;
+  }
 
   const topicVal = document.getElementById('topic').value.trim();
-  const title = topicVal || extractTitleFromText(lastRawText) || '제목 없음';
-  const htmlContent = buildHTML(lastRawText, true, lastImagesMap);
+  const title = topicVal || (lastIsRawHtml ? lastBlogspotTitles[0] : '') || extractTitleFromText(lastRawText) || '제목 없음';
+  // 블로그스팟 모드는 이미 완성된 HTML이므로 마크 파서를 거치지 않고 그대로 사용한다.
+  const htmlContent = lastIsRawHtml ? lastRawText : buildHTML(lastRawText, true, lastImagesMap);
   const isDraft = publishMode === 'draft';
 
   const btn = document.getElementById('publishBtn');
