@@ -561,6 +561,19 @@
     </div>
   </header>
 
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-head"><span>⚙ 설정 백업 / 복원</span></div>
+    <div class="panel-body">
+      <div class="hint" style="margin-bottom:10px;">API 키 등은 이 브라우저에만 저장되므로, 브라우저 데이터를 지우거나 다른 PC로 옮기면 사라집니다. <b>설정 파일로 저장</b>해두면 언제든 다시 불러올 수 있습니다. (이 파일에는 API 키가 그대로 담기니 다른 사람과 공유하지 마세요.)</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button type="button" class="generate-btn" id="exportSettingsBtn" style="flex:1; min-width:180px; background:linear-gradient(135deg, var(--teal) 0%, var(--teal-deep) 100%); box-shadow:0 4px 0 0 var(--teal-deep);">⬇ 설정 파일로 저장</button>
+        <button type="button" class="generate-btn" id="importSettingsBtn" style="flex:1; min-width:180px; background:linear-gradient(135deg, #6b7280 0%, #4b5563 100%); box-shadow:0 4px 0 0 #374151;">⬆ 설정 파일 불러오기</button>
+        <input type="file" id="importSettingsFile" accept="application/json" style="display:none;">
+      </div>
+      <div class="hint" id="settingsBackupStatus" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
   <div class="grid">
 
     <!-- LEFT: INPUT PANEL -->
@@ -694,14 +707,24 @@
       <div class="hint" style="margin-bottom:8px;">위쪽 <b>"발행할 플랫폼"</b> 선택에 따라 아래 항목이 자동으로 바뀝니다. 다른 플랫폼으로 바꾸려면 맨 위 입력 패널에서 다시 선택한 뒤 원고를 다시 생성해 주세요.</div>
 
       <div id="bloggerFields" style="display:none;">
+        <div class="field" style="background:#f9fafb; border:1px solid var(--line); border-radius:6px; padding:14px;">
+          <label style="margin-bottom:6px;">방법 1 — OAuth 설정 없이 수동으로 게시</label>
+          <div class="hint" style="margin-bottom:10px;">아래 버튼을 누르면 완성된 원고를 서식 그대로 클립보드에 복사하고, 블로그스팟을 새 창으로 엽니다. 새 창에서 <b>새 글쓰기</b> → 오른쪽 위 <b>HTML 보기</b>로 전환한 뒤 본문을 클릭하고 <b>Ctrl+V(붙여넣기)</b>만 하면 됩니다.</div>
+          <button class="generate-btn" id="blogspotPrepareBtn" style="background:linear-gradient(135deg, var(--ochre) 0%, #8a6626 100%); box-shadow:0 4px 0 0 #5f4718;">📋 복사 + 블로그스팟 새 창 열기</button>
+          <div class="publish-status" id="blogspotCopyStatus"></div>
+        </div>
+
+        <div class="hint" style="text-align:center; margin:16px 0; color:var(--ink-soft);">— 또는 —</div>
+
         <div class="field">
-          <label for="googleClientId">Google OAuth 클라이언트 ID (Blogger 게시용)</label>
+          <label style="margin-bottom:6px;">방법 2 — 구글 로그인으로 자동 게시</label>
+          <label for="googleClientId" style="font-size:12.5px; color:var(--ink-soft); margin-bottom:4px; display:block;">Google OAuth 클라이언트 ID</label>
           <input type="text" id="googleClientId" placeholder="xxxxxxxxxxxx.apps.googleusercontent.com" autocomplete="off">
           <div class="save-key-row">
             <label class="save-key-label"><input type="checkbox" id="saveClientIdCheck"> 이 기기에 저장</label>
           </div>
           <div class="apikey-note">
-            Google Cloud Console에서 "OAuth 클라이언트 ID"(웹 애플리케이션)를 만들고 Blogger API를 사용 설정해야 합니다. 이 HTML 파일을 여는 실제 주소(예: https://내계정.github.io/... 또는 http://localhost:포트)를 "승인된 자바스크립트 원본"에 등록해야 로그인이 동작합니다. 컴퓨터에 파일을 더블클릭해서 여는 방식(file://)으로는 구글 로그인이 되지 않습니다.
+            Google Cloud Console에서 "OAuth 클라이언트 ID"(웹 애플리케이션)를 만들고 Blogger API를 사용 설정해야 합니다. 이 HTML 파일을 여는 실제 주소(예: https://내계정.github.io/... 또는 http://localhost:포트)를 "승인된 자바스크립트 원본"에 등록해야 로그인이 동작합니다. 컴퓨터에 파일을 더블클릭해서 여는 방식(file://)으로는 구글 로그인이 되지 않습니다. 설정이 번거로우면 위 "방법 1"을 이용하세요.
           </div>
         </div>
 
@@ -746,23 +769,38 @@
 
 <script>
 const SYSTEM_PROMPT_NAVER = `당신은 대한민국 네이버 블로그 검색 SEO·D.I.A.(정보성·경험성·검색의도)·C-Rank(주제 전문성·신뢰성·일관성)에 특화된 전문 콘텐츠 에디터다.
+사용자가 입력한 키워드(또는 [주제]/[참고자료])를 바탕으로 최신 정보를 조사하고 최소 2회 이상 사실관계를 교차검증한 뒤, 네이버 검색 의도와 관련성이 높은 완성형 블로그 콘텐츠를 작성한다.
 
-## 우선순위
+## 우선순위 (최상위 원칙)
 검색 의도 충족 > 정확성 > 최신성 > 정보 가치(D.I.A.) > 주제 전문성·신뢰성(C-Rank) > 구체성 > 자연스러운 SEO.
-네이버 상위노출·검색 순위·D.I.A./C-Rank 점수를 보장하거나 임의로 수치화하는 표현은 절대 쓰지 않는다.
+네이버 상위노출·검색 순위·D.I.A./C-Rank 점수를 보장하거나 임의로 수치화하는 표현은 절대 쓰지 않는다. SEO보다 정확성과 사용자 만족을 항상 우선한다.
+
+## 입력 분석
+사용자가 형식을 정확히 맞추지 않아도, 입력을 분석해 내부적으로 (1)메인 키워드 (2)핵심 검색 의도 (3)세부 검색 의도 (4)최신성 필요 여부 (5)사용자가 강조한 부분 (6)관련 검색어(롱테일 포함) (7)예상 독자 (8)키워드가 속하는 핵심 주제(카테고리)를 파악한다. 이 분석 결과는 출력하지 않고 본문 작성에만 반영한다.
+
+## 최신 검색이 필수인 분야
+금융·신용카드·은행·보험·정부정책·지원금·세금·부동산·자동차(신차/중고차)·연예·방송·스포츠·여행·항공·호텔·가격·요금·이벤트·프로모션·OTT·드라마·영화·IT·제품·기업·법률·제도·일정·출시정보·인물·사회 이슈 등은 기존 학습 데이터로 단정하지 말고 검색 도구로 반드시 확인한다. 사용자가 "최신/현재/오늘/이번 달/이번 주"를 언급했다면 가장 최근 공식자료를 우선한다.
+
+## 2회 이상 교차검증 및 출처 우선순위
+중요한 정보는 최소 2개의 독립된 자료로 검증한다. 우선순위는 (1)정부기관·공공기관·지자체·기업·카드사·금융사·방송사·제작사 등 공식 원문 (2)공식 공지·보도자료·공시 (3)신뢰도 높은 언론사 (4)전문기관·협회·연구기관 (5)기타 참고자료 순이다. 공식자료가 있으면 개인 블로그·카페·커뮤니티보다 항상 우선하고, 하나의 개인 블로그·커뮤니티 글만으로 중요한 사실을 확정하지 않는다.
+날짜·가격·금액·할인율·이자율·수수료·지원금·이벤트/신청 기간·대상·제외대상·조건·출시일·방송일·인물 관계·공식 발언·법률·정책·제도·통계·제품 사양·순위는 오류 가능성이 높으므로 반드시 한 번 더 확인한다. 서로 다른 자료가 충돌하면 임의로 하나를 선택하지 않고, 확인이 어려우면 그 사실 자체를("공식 확인이 필요합니다" 등으로) 밝힌다.
 
 ## 작업 순서 (반드시 이 순서로 사고할 것)
-1. [참고자료]가 있으면 핵심 주제·수치·주장을 추출한다. 없으면 [주제]/[키워드]에서 핵심 검색 의도와 세부 검색 의도를 자체적으로 분석한다.
-2. 정책·금융·가격·일정·이슈·인물 등 시의성이 필요한 주제인지 판단한다. 그렇다면 검색 도구로 최신 공식자료를 확인하고, 중요한 숫자·조건·날짜는 발표일/시행일을 구분해 신중히 처리한다.
+1. [참고자료]가 있으면 핵심 주제·수치·주장을 추출한다. 없으면 [주제]/[키워드]에서 위 "입력 분석" 항목을 자체적으로 파악한다.
+2. 시의성이 필요한 주제인지 판단하고, 필요하면 검색 도구로 최신 공식자료를 확인해 위 교차검증 규칙대로 처리한다. 발표일/시행일을 구분해 신중히 처리한다.
 3. 글의 유형을 정한다 (사용자가 지정한 유형을 우선 따른다): 정보·리스트형 / 체험 후기형.
-4. 아래 규칙에 맞춰 본문을 작성한다.
-5. 자체 체크리스트(맨 아래)를 점검하고 최종본만 출력한다. 특히 "소제목 개수 == [이미지: ...] 개수 이상"을 재확인한다.
+4. 이미 비슷한 글이 검색결과에 많을 만한 주제라면, 단순 재작성이 아니라 최신 공식자료 반영·변경 전후 비교·세부 조건 정리·제외 대상·실제 계산·비용 비교·상황별 유불리·잘못 알려진 정보 검증 중 최소 2개 이상의 추가 가치를 반영한다.
+5. 메인 키워드가 속한 핵심 카테고리(금융/자동차/여행/IT 등)를 파악해, 그 분야를 전문적으로 다루는 블로그처럼 어휘와 정보 깊이를 맞춘다(C-Rank). 조회수를 노린 무관한 키워드는 억지로 넣지 않는다.
+6. 아래 규칙에 맞춰 본문을 작성하며, 관련 검색어(롱테일)는 나열하지 않고 본문에 자연스럽게 녹인다.
+7. 자체 체크리스트(맨 아래)를 점검하고 최종본만 출력한다. 특히 "소제목 개수 == [이미지: ...] 개수 이상", "출처-본문 숫자/날짜/조건 일치 여부"를 재확인한다.
 
 ## 절대 금지
 - 확인되지 않은 통계·연구·금액·URL을 지어내지 않는다. 확인이 어려우면 그 항목은 빼거나 "공식 확인이 필요합니다"로 표시한다.
-- 사용자가 제공하지 않은 개인 경험("제가 직접 가봤는데요", "써보니")을 지어내지 않는다.
+- 사용자가 제공하지 않은 개인 경험("제가 직접 가봤는데요", "제가 직접 신청해봤습니다", "써보니")을 지어내지 않는다. 실제 경험이 없으면 "공식자료를 비교해보면", "조건을 확인해보면", "현재 공개된 자료를 기준으로 보면"처럼 쓴다.
 - 발표일과 시행일을 혼동하지 않는다. 정책이 발표됐다는 이유만으로 "현재 적용 중"이라 단정하지 않는다.
 - 낚시성 표현("무조건", "충격", "모르면 손해", "100% 보장")을 쓰지 않는다.
+- 기사나 타 블로그 문장을 어미만 바꿔 재작성하지 않는다. 완전히 새로운 구조로 재구성한다.
+- "~인데요", "~라고 할 수 있습니다", "~라는 점입니다" 같은 AI 특유의 반복 어미 패턴을 피하고 문장 길이와 어미에 변화를 준다. 같은 내용을 표현만 바꿔 반복하지 않는다(문단마다 새 정보 전달).
 - 건강기능식품/다이어트 소재는 "치료", "완치", "효과 보장" 등 의약품 오인 표현 금지. "도움을 줄 수 있다" 같은 보조적 표현만 사용한다.
 - 처방 의약품(GLP-1 계열 등) 언급 시 "전문의 상담 필수" 문구 반드시 포함.
 - 특정 브랜드 과도 홍보 금지, 자연스러운 소개 수준 유지.
@@ -834,11 +872,12 @@ A: (답변3)
 본문 전체를 반복 요약하지 않는다. "지금까지 ○○에 대해 알아봤습니다" 같은 상투적 문장을 피한다. 어떤 사람이 확인해야 하는지, 최종 판단 조건, 개인별로 달라지는 요소, 확인이 필요한 부분 위주로 2~3문단.
 
 ## 출처 (실제 검색·참고자료로 확인된 것만, 확인 못했으면 이 블록 자체를 생략)
+글에서 실제로 검증에 사용한 핵심 출처를 정확히 2개만 고른다(공식 원문 우선, 없으면 우선순위 상위 자료). 언론사 재인용 기사만 여러 개 채우지 말고, 가능하면 공식 원문을 우선한다.
 [[출처]]
 기관/기업명 | 자료명 | 실제 확인된 URL
 기관/기업명 | 자료명 | 실제 확인된 URL
 [[/출처]]
-언론사 재인용 기사만 여러 개 채우지 말고, 가능하면 공식 원문을 우선한다. URL을 추측해서 만들어내지 않는다.
+URL은 실제 검색에서 확인한 세부 페이지 주소만 사용하고, 추측이나 가짜 URL을 절대 만들어내지 않는다. 출력 직전 출처의 숫자·날짜·조건·기한이 본문 내용과 완전히 일치하는지 다시 확인한다.
 
 ## 해시태그
 마무리와 출처 다음 줄에 관련 해시태그 10~15개 (#키워드 형식, 공백 없이 붙여서). 주제와 무관한 인기 키워드는 넣지 않는다.
@@ -857,8 +896,13 @@ A: (답변3)
 - [참고자료]가 있으면 우선하되, 시점이 지난 정보는 검색으로 자연스럽게 보완한다. 핵심 주장이 충돌하면 [참고자료]를 우선한다.
 - [참고자료]가 없으면 검색을 적극 활용해 최신 정보를 확인하며 작성하되, 확인되지 않은 구체적 수치·연구결과는 지어내지 않는다.
 
-## 최종 자체 검수 (출력 전 확인)
-제목후보 5개와 검색의도가 서로 다른가 / 메타 설명·키워드가 있는가 / 서론에 핵심 결론이 먼저 나오는가 / 소제목 4~6개와 [이미지:] 개수가 일치하는가 / 표에 서로 다른 기준일 데이터가 섞이지 않았는가 / FAQ가 3개 이상인가 / 출처 URL이 실제 확인된 것인가(없으면 블록 생략했는가) / 해시태그 10~15개인가 / 허위 경험이나 지어낸 수치가 없는가.
+## 분량
+검색 의도 충족을 최우선으로 하되, 기본적으로 본문 약 1,800~2,500자 수준을 목표로 한다.
+
+## 최종 자체 검수 (출력 전 확인, 3중 검증)
+1차(사실관계): 확인되지 않은 통계·금액·URL·경험이 없는가 / 서로 다른 자료가 충돌하는 항목을 임의로 확정하지 않았는가 / 오류 가능성이 높은 항목(날짜·금액·기간·대상 등)을 재확인했는가.
+2차(D.I.A./SEO): 제목후보 5개와 검색의도가 서로 다른가 / 메타 설명·키워드가 있는가 / 서론에 핵심 결론이 먼저 나오는가 / 소제목 4~6개와 [이미지:] 개수가 일치하는가 / 표에 서로 다른 기준일 데이터가 섞이지 않았는가 / FAQ가 3개 이상인가 / 롱테일 검색어가 나열이 아닌 자연스러운 문장으로 녹아 있는가 / 유사문서 대비 추가 가치가 최소 2개 이상 반영되었는가.
+3차(C-Rank/출력): 어휘와 정보 깊이가 해당 카테고리 전문 블로그 수준과 맞는가 / 무관한 키워드를 억지로 넣지 않았는가 / 출처가 정확히 2개이고 URL·숫자·날짜가 본문과 일치하는가(확인 불가 시 블록 생략) / 해시태그 10~15개인가 / AI 특유의 반복 어미가 남아있지 않은가 / 목차를 출력하지 않았는가.
 
 ## 출력 형식
 "## "은 대표 제목에만, "# "은 본문 소제목에만 사용한다. [[제목후보]][[메타]][[TABLE]][[FAQ]][[출처]] 블록 문법을 정확히 지키고, 그 외 용도로 마크다운 헤더를 쓰지 않는다. 위 강조 표시 규칙(==, %%, **)을 그대로 살려서 출력한다. 구분선은 --- 로 표기. 다른 설명 없이 완성된 글만 출력한다.`;
@@ -2126,6 +2170,43 @@ document.getElementById('naverBlogId').addEventListener('input', (e)=>{
   }
 });
 
+document.getElementById('blogspotPrepareBtn').addEventListener('click', async ()=>{
+  const statusEl = document.getElementById('blogspotCopyStatus');
+  statusEl.classList.remove('err');
+
+  if(!lastRawText){
+    statusEl.classList.add('err');
+    statusEl.textContent = '먼저 원고를 생성해 주세요.';
+    return;
+  }
+  if(!lastIsRawHtml){
+    statusEl.classList.add('err');
+    statusEl.textContent = '지금 생성된 원고는 네이버용 마크 서식입니다. 상단 "발행할 플랫폼"을 구글 블로그스팟으로 바꾸고 원고를 다시 생성해 주세요.';
+    return;
+  }
+
+  // 블로그스팟 모드는 이미 완성된 HTML이므로, [이미지: ...] 표시만 실제 사진으로 치환해서 그대로 복사한다.
+  const html = renderBlogspotHtml(lastRawText, lastImagesMap);
+
+  try{
+    if(window.ClipboardItem){
+      const item = new ClipboardItem({
+        'text/html': new Blob([html], {type:'text/html'}),
+        'text/plain': new Blob([html], {type:'text/plain'})
+      });
+      await navigator.clipboard.write([item]);
+    }else{
+      await navigator.clipboard.writeText(html);
+    }
+    statusEl.innerHTML = '복사 완료! 새로 열린 창에서 <b>새 글쓰기</b> → 오른쪽 위 <b>HTML 보기</b>로 전환한 뒤 본문을 클릭하고 <b>Ctrl+V</b>로 붙여넣으세요. ("작성" 모드에 바로 붙여넣으면 표·버튼 스타일이 깨질 수 있어요.)';
+  }catch(err){
+    statusEl.classList.add('err');
+    statusEl.textContent = '클립보드 복사에 실패했습니다: ' + err.message + ' — 브라우저의 클립보드 권한을 확인해 주세요.';
+  }
+
+  window.open('https://www.blogger.com/', '_blank');
+});
+
 document.getElementById('naverPrepareBtn').addEventListener('click', async ()=>{
   const statusEl = document.getElementById('naverStatus');
   statusEl.classList.remove('err');
@@ -2258,6 +2339,111 @@ function extractTitleFromText(raw){
   if(!lines.length) return '';
   return lines[0].replace(/^#+\s*/, '').replace(/[=%*]/g, '');
 }
+
+/* =====================================================
+   설정 백업(파일로 저장) / 복원(파일 불러오기)
+   API 키 등이 브라우저 데이터 삭제로 사라질 때를 대비한 기능
+===================================================== */
+function collectCurrentSettings(){
+  return {
+    _type: 'hs9557_blog_generator_settings',
+    _savedAt: new Date().toISOString(),
+    geminiApiKey: document.getElementById('apiKey').value.trim(),
+    saveGeminiApiKey: document.getElementById('saveKeyCheck').checked,
+    pexelsApiKey: document.getElementById('pexelsKey').value.trim(),
+    savePexelsApiKey: document.getElementById('savePexelsCheck').checked,
+    googleClientId: document.getElementById('googleClientId').value.trim(),
+    saveGoogleClientId: document.getElementById('saveClientIdCheck').checked,
+    naverBlogId: document.getElementById('naverBlogId').value.trim(),
+    saveNaverBlogId: document.getElementById('saveNaverIdCheck').checked,
+    useGoogleSearch: document.getElementById('useGoogleSearch').checked
+  };
+}
+
+document.getElementById('exportSettingsBtn').addEventListener('click', ()=>{
+  const settings = collectCurrentSettings();
+  const statusEl = document.getElementById('settingsBackupStatus');
+  const hasAnything = settings.geminiApiKey || settings.pexelsApiKey || settings.googleClientId || settings.naverBlogId;
+  if(!hasAnything){
+    statusEl.textContent = '저장할 내용이 없습니다. API 키 등을 입력한 뒤 다시 시도해 주세요.';
+    return;
+  }
+  const blob = new Blob([JSON.stringify(settings, null, 2)], {type:'application/json;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth()+1).padStart(2,'0');
+  const d = String(now.getDate()).padStart(2,'0');
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `블로그생성기_설정_${y}${m}${d}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  statusEl.textContent = '설정 파일을 저장했습니다. 안전한 곳(개인 폴더, USB 등)에 보관해 주세요. 이 파일에는 API 키가 그대로 담겨 있습니다.';
+});
+
+document.getElementById('importSettingsBtn').addEventListener('click', ()=>{
+  document.getElementById('importSettingsFile').click();
+});
+
+document.getElementById('importSettingsFile').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  const statusEl = document.getElementById('settingsBackupStatus');
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      const settings = JSON.parse(ev.target.result);
+      if(settings._type !== 'hs9557_blog_generator_settings'){
+        statusEl.textContent = '이 파일은 이 도구의 설정 파일이 아닌 것 같습니다.';
+        return;
+      }
+
+      if(settings.geminiApiKey){
+        document.getElementById('apiKey').value = settings.geminiApiKey;
+        document.getElementById('saveKeyCheck').checked = !!settings.saveGeminiApiKey;
+        if(settings.saveGeminiApiKey){
+          try{ localStorage.setItem(STORAGE_KEY, settings.geminiApiKey); }catch(err){}
+        }
+      }
+      if(settings.pexelsApiKey){
+        document.getElementById('pexelsKey').value = settings.pexelsApiKey;
+        document.getElementById('savePexelsCheck').checked = !!settings.savePexelsApiKey;
+        if(settings.savePexelsApiKey){
+          try{ localStorage.setItem(PEXELS_STORAGE_KEY, settings.pexelsApiKey); }catch(err){}
+        }
+      }
+      if(settings.googleClientId){
+        document.getElementById('googleClientId').value = settings.googleClientId;
+        document.getElementById('saveClientIdCheck').checked = !!settings.saveGoogleClientId;
+        if(settings.saveGoogleClientId){
+          try{ localStorage.setItem(GCLIENTID_STORAGE_KEY, settings.googleClientId); }catch(err){}
+        }
+      }
+      if(settings.naverBlogId){
+        document.getElementById('naverBlogId').value = settings.naverBlogId;
+        document.getElementById('saveNaverIdCheck').checked = !!settings.saveNaverBlogId;
+        if(settings.saveNaverBlogId){
+          try{ localStorage.setItem(NAVER_ID_STORAGE_KEY, settings.naverBlogId); }catch(err){}
+        }
+      }
+      if(typeof settings.useGoogleSearch === 'boolean'){
+        document.getElementById('useGoogleSearch').checked = settings.useGoogleSearch;
+        try{ localStorage.setItem(USE_SEARCH_STORAGE_KEY, settings.useGoogleSearch ? '1' : '0'); }catch(err){}
+        updateSearchOffWarning();
+      }
+
+      statusEl.textContent = `설정을 불러왔습니다. (저장 시각: ${settings._savedAt ? new Date(settings._savedAt).toLocaleString('ko-KR') : '알 수 없음'})`;
+    }catch(err){
+      statusEl.textContent = '설정 파일을 읽는 중 오류가 발생했습니다: ' + err.message;
+    }finally{
+      e.target.value = '';
+    }
+  };
+  reader.readAsText(file);
+});
 
 document.getElementById('publishBtn').addEventListener('click', async ()=>{
   if(!accessToken){ showPublishStatus('먼저 구글 계정으로 로그인해 주세요.', true); return; }
