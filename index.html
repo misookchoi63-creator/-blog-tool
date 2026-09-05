@@ -672,6 +672,7 @@
         </div>
       </div>
       <div class="error-box" id="errorBox"></div>
+      <div id="blogspotMetaBox"></div>
       <div id="output"></div>
       <div class="grounding-box" id="groundingBox"></div>
     </div>
@@ -948,7 +949,11 @@ CTA 버튼은 실제 연결 페이지 기능과 일치하는 문구로 만들고
 ## 이미지
 - HTML 본문 안에 이미지가 들어가면 좋을 위치(대표 이미지 1곳 + 주요 H2 소제목 중 3~5곳)마다, <img> 태그를 직접 만들지 말고 정확히 다음 형식의 "일반 텍스트 줄"을 그 자리에 그대로 삽입한다: [이미지: 상황 설명]
   (이 표시는 나중에 시스템이 실제 사진으로 자동 치환한다. 절대 <img> 태그, base64, placeholder URL을 직접 생성하지 않는다.)
-- 위치 예시: 대표 이미지는 서론 바로 다음 줄, 나머지는 해당 H2 제목 바로 다음 줄(문단 시작 전)에 별도 줄로 넣는다.
+- 위치 예시: 대표 이미지는 서론 바로 다음 줄, 나머지는 해당 H2 제목 바로 다음 줄(문단 시작 전)에 별도 줄로 넣는다. 실제로는 아래처럼 H2 종료 태그 바로 뒤, 첫 문단 <p> 앞에 넣는다.
+  <h2 id="section1">1. 예상 수령액은 어떻게 계산할까</h2>
+  [이미지: 계산기로 예상 수령액을 확인하는 손 모습]
+  <p>본문 내용...</p>
+- 이 [이미지: ...] 표시는 절대 생략하지 않는다. 본문에 H2가 4개면 최소 4개, 대표 이미지까지 포함해 최소 5개 이상 나와야 한다. 코드블록으로 감싸더라도 이 표시 줄은 그대로 텍스트로 유지한다.
 - 설명 문구는 그 섹션 내용을 사진으로 표현할 수 있는 구체적인 장면/사물/상황으로 쓴다 (예: [이미지: 계산기로 예상 수령액을 확인하는 손 모습]).
 - 글의 주제가 특정 실존 인물(연예인, 배우, 공인 등)에 관한 것이면 이미지 설명에 그 인물의 실명을 그대로 써도 된다. 예시로만 잠깐 언급되는 인물이면 실명 대신 일반적인 인물 묘사로 쓴다.
 - 이미지 자리 표시 줄 자체는 <p> 등 HTML 태그로 감싸지 않고, 다른 텍스트와 섞이지 않게 독립된 줄로 둔다.
@@ -1148,7 +1153,7 @@ function buildHTML(raw, inline, imagesMap){
       flush();
       continue;
     }
-    const imgMatch = t.match(/^\[이미지:(.*)\]$/);
+    const imgMatch = t.match(/^\[이미지\s*[:：]\s*(.*)\]$/);
     if(imgMatch){
       flush();
       const descRaw = imgMatch[1].trim();
@@ -1253,7 +1258,7 @@ function buildBlogspotMetaBox(titles, desc, keywords){
 // (네이버와 동일한 [이미지: ...] 문법을 그대로 재사용하므로 Pexels 검색/치환 파이프라인을 공유한다.)
 function renderBlogspotHtml(html, imagesMap){
   imagesMap = imagesMap || {};
-  return html.replace(/\[이미지:(.*?)\]/g, (full, d)=>{
+  return html.replace(/\[이미지\s*[:：]\s*(.*?)\]/g, (full, d)=>{
     const descRaw = d.trim();
     const desc = escapeHtml(descRaw);
     const url = imagesMap[descRaw];
@@ -1691,7 +1696,7 @@ ${refMaterial}
       lastImagesMap = {};
       lastImageDescs = [];
       lastImageQueries = {};
-      document.getElementById('output').innerHTML = buildHTML(text, false, lastImagesMap);
+      renderOutputPreview();
       document.getElementById('insertImagesBtn').disabled = false;
       document.getElementById('imageInsertStatus').textContent = '';
       document.getElementById('publishStatus').textContent = '';
@@ -1776,10 +1781,14 @@ document.getElementById('downloadBtn').addEventListener('click', ()=>{
 
 document.getElementById('clearBtn').addEventListener('click', ()=>{
   lastRawText = '';
+  lastIsRawHtml = false;
+  lastBlogspotTitles = [];
+  lastBlogspotMeta = { desc:'', keywords:'' };
   lastImagesMap = {};
   lastImageDescs = [];
   lastImageQueries = {};
   document.getElementById('output').innerHTML = '';
+  document.getElementById('blogspotMetaBox').innerHTML = '';
   document.getElementById('insertImagesBtn').disabled = true;
   document.getElementById('imageInsertStatus').textContent = '';
   renderImageReviewList();
@@ -1861,20 +1870,38 @@ document.getElementById('googleClientId').addEventListener('input', (e)=>{
 
 function ensureImagePlaceholders(raw, isHtml){
   if(isHtml){
-    // 블로그스팟 모드: 소제목은 <h2>라서 마크 기반 자동삽입 로직을 쓰지 않고,
-    // 표시가 하나도 없을 때만 최상위 컨테이너 시작 태그 바로 뒤에 대표 이미지 자리를 하나 넣는다.
-    const totalImgs = (raw.match(/\[이미지:[^\]]*\]/g) || []).length;
-    if(totalImgs === 0){
-      const idx = raw.indexOf('>');
-      if(idx !== -1){
-        return raw.slice(0, idx+1) + '\n[이미지: 글 주제를 표현하는 대표 이미지]\n' + raw.slice(idx+1);
+    // 블로그스팟 모드: 각 <h2>...</h2> 소제목 뒤에 [이미지: ...] 표시가 없으면 자동으로 하나씩 채워 넣는다.
+    // (모델이 이미지 표시를 빠뜨리는 경우를 대비한 안전장치. 이미 있으면 건드리지 않는다.)
+    const parts = raw.split(/(<\/h2>)/i);
+    let out = '';
+    let addedCount = 0;
+    for(let i=0;i<parts.length;i++){
+      out += parts[i];
+      if(parts[i].toLowerCase() === '</h2>' && addedCount < 6){
+        const lookahead = (parts[i+1] || '').slice(0, 400);
+        if(!/\[이미지\s*[:：][^\]]*\]/.test(lookahead)){
+          const prevChunk = parts[i-1] || '';
+          const headingMatch = prevChunk.match(/<h2\b[^>]*>([\s\S]*)$/i);
+          let headingText = headingMatch ? headingMatch[1].replace(/<[^>]*>/g,'').trim() : '';
+          headingText = headingText.slice(0, 40) || '이 섹션';
+          out += `\n[이미지: ${headingText} 관련 장면]\n`;
+          addedCount++;
+        }
       }
-      return `[이미지: 글 주제를 표현하는 대표 이미지]\n` + raw;
     }
-    return raw;
+    const totalImgs = (out.match(/\[이미지\s*[:：][^\]]*\]/g) || []).length;
+    if(totalImgs === 0){
+      const idx = out.indexOf('>');
+      if(idx !== -1){
+        out = out.slice(0, idx+1) + '\n[이미지: 글 주제를 표현하는 대표 이미지]\n' + out.slice(idx+1);
+      }else{
+        out = `[이미지: 글 주제를 표현하는 대표 이미지]\n` + out;
+      }
+    }
+    return out;
   }
   const headingRe = /^#\s+(.+)$/;
-  const imgRe = /^\[이미지:(.*)\]$/;
+  const imgRe = /^\[이미지\s*[:：]\s*(.*)\]$/;
   const lines = raw.split('\n');
   const result = [];
 
@@ -1898,7 +1925,7 @@ function ensureImagePlaceholders(raw, isHtml){
   }
 
   let out = result.join('\n');
-  const totalImgs = (out.match(/\[이미지:[^\]]*\]/g) || []).length;
+  const totalImgs = (out.match(/\[이미지\s*[:：][^\]]*\]/g) || []).length;
   if(totalImgs === 0){
     out = `[이미지: 글 주제를 표현하는 대표 이미지]\n\n` + out;
   }
@@ -1907,7 +1934,7 @@ function ensureImagePlaceholders(raw, isHtml){
 
 function extractImagePlaceholders(raw){
   const set = new Set();
-  const re = /\[이미지:(.*?)\]/g;
+  const re = /\[이미지\s*[:：]\s*(.*?)\]/g;
   let m;
   while((m = re.exec(raw)) !== null){
     const desc = m[1].trim();
@@ -2018,10 +2045,15 @@ function renderImageReviewList(){
 
 // 현재 lastRawText/lastIsRawHtml 상태에 맞춰 #output 미리보기를 다시 그리는 공용 함수.
 // (네이버 마크 서식과 블로그스팟 raw HTML 두 모드 모두에서 이미지 삽입/재검색 시 재사용)
+// 주의: 제목후보/메타 박스는 #output이 아니라 별도의 #blogspotMetaBox에 그린다.
+// #output에는 항상 "실제 본문"만 들어가야 복사/다운로드/게시 시 참고용 박스가 섞이지 않는다.
 function renderOutputPreview(){
+  const metaBoxEl = document.getElementById('blogspotMetaBox');
   if(lastIsRawHtml){
-    document.getElementById('output').innerHTML = buildBlogspotMetaBox(lastBlogspotTitles, lastBlogspotMeta.desc, lastBlogspotMeta.keywords) + renderBlogspotHtml(lastRawText, lastImagesMap);
+    metaBoxEl.innerHTML = buildBlogspotMetaBox(lastBlogspotTitles, lastBlogspotMeta.desc, lastBlogspotMeta.keywords);
+    document.getElementById('output').innerHTML = renderBlogspotHtml(lastRawText, lastImagesMap);
   }else{
+    metaBoxEl.innerHTML = '';
     document.getElementById('output').innerHTML = buildHTML(lastRawText, false, lastImagesMap);
   }
 }
@@ -2186,6 +2218,11 @@ document.getElementById('blogspotPrepareBtn').addEventListener('click', async ()
   }
 
   // 블로그스팟 모드는 이미 완성된 HTML이므로, [이미지: ...] 표시만 실제 사진으로 치환해서 그대로 복사한다.
+  const unresolved = extractImagePlaceholders(lastRawText).filter(d=>!lastImagesMap[d]);
+  if(unresolved.length > 0){
+    const proceed = confirm(`아직 사진으로 채워지지 않은 이미지 자리가 ${unresolved.length}곳 있습니다. 이대로 복사하면 그 자리에 대기 박스 문구가 그대로 복사됩니다.\n\n먼저 "이미지 자동 삽입"을 눌러 채운 뒤 복사하는 것을 권장합니다. 그래도 지금 바로 복사할까요?`);
+    if(!proceed) return;
+  }
   const html = renderBlogspotHtml(lastRawText, lastImagesMap);
 
   try{
@@ -2457,8 +2494,16 @@ document.getElementById('publishBtn').addEventListener('click', async ()=>{
 
   const topicVal = document.getElementById('topic').value.trim();
   const title = topicVal || (lastIsRawHtml ? lastBlogspotTitles[0] : '') || extractTitleFromText(lastRawText) || '제목 없음';
-  // 블로그스팟 모드는 이미 완성된 HTML이므로 마크 파서를 거치지 않고 그대로 사용한다.
-  const htmlContent = lastIsRawHtml ? lastRawText : buildHTML(lastRawText, true, lastImagesMap);
+
+  const unresolved = extractImagePlaceholders(lastRawText).filter(d=>!lastImagesMap[d]);
+  if(unresolved.length > 0){
+    const proceed = confirm(`아직 사진으로 채워지지 않은 이미지 자리가 ${unresolved.length}곳 있습니다. 이대로 게시하면 그 자리에 대기 박스가 그대로 올라갑니다.\n\n먼저 "이미지 자동 삽입"을 눌러 채운 뒤 게시하는 것을 권장합니다. 그래도 지금 바로 게시할까요?`);
+    if(!proceed) return;
+  }
+
+  // 블로그스팟 모드는 완성된 HTML이지만, [이미지: ...] 표시는 여기서 실제 <img> 태그로 치환해야 한다.
+  // (이 치환 없이 lastRawText를 그대로 보내면 표시 문구가 글자 그대로 게시되어 사진이 전혀 삽입되지 않는다.)
+  const htmlContent = lastIsRawHtml ? renderBlogspotHtml(lastRawText, lastImagesMap) : buildHTML(lastRawText, true, lastImagesMap);
   const isDraft = publishMode === 'draft';
 
   const btn = document.getElementById('publishBtn');
